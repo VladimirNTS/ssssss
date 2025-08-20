@@ -121,7 +121,7 @@ async def release(*, body: PayResponce):
             new_date = current_date + relativedelta(months=tariff.sub_time)
 
             new_vpn_user = await add_customer(cookies=await auth(), email=user.name, expire_time=(new_date.timestamp() * 1000), limit_ip=tariff.devices)
-            await create_subscription(new_vpn_user, async_session, user.user_id, tariff, bot)
+            await create_subscription(new_vpn_user, async_session, user.id, tariff, bot)
         if user.invited_by:
             pass
 
