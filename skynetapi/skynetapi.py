@@ -32,7 +32,7 @@ async def auth():
     print(data)
 
     async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.post('https://super.skynetvpn.ru:8080/paneladmin/login', data=data) as response:
+        async with session.post('https://super.skynetvpn.ru:8443/paneladmin/', data=data) as response:
             text = await response.text()
             print(text)
             cookies = response.cookies
@@ -50,7 +50,7 @@ async def add_customer(cookies, email, expire_time, limit_ip):
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            'https://super.skynetvpn.ru:8080/paneladmin/panel/inbound/addClient',
+            'https://super.skynetvpn.ru:8443/paneladmin/panel/inbound/addClient',
             data=data,
         ) as response:
             text = await response.text()
@@ -74,7 +74,7 @@ async def edit_customer_date(cookies, expire_time, id, session):
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            f'https://super.skynetvpn.ru:8080/paneladmin/panel/inbound/updateClient/{user.tun_id}',
+            f'https://super.skynetvpn.ru:8443/paneladmin/panel/inbound/updateClient/{user.tun_id}',
             data=data,
         ) as response:
             text = await response.text()
