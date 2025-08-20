@@ -1,0 +1,13 @@
+python-dateutil
+aiogram==3.19.0
+sqlalchemy
+python-dotenv
+requests
+asyncpg
+aiosqlite
+fastapi
+jinja2
+uvicorn
+qrcode
+fastapi[standard]
+apscheduler
