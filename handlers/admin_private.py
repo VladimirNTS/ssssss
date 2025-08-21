@@ -17,7 +17,10 @@ from database.queries import (
     orm_get_faq,
     orm_delete_faq,
     orm_edit_faq,
-    orm_unblock_user
+    orm_unblock_user,
+    orm_add_server,
+    orm_edit_server,
+    orm_get_servers
 )
 
 admin_private_router = Router()
@@ -32,6 +35,7 @@ async def start(callback):
         '📃 Список заказов': 'orders_list',
         '📫 Рассылка': 'send',
         '⚙ Редактировать FAQ': 'edit_faq',
+        '⚙ Управления серверами': 'servers_list'
     }, sizes=(2,2,1)))
 
 
@@ -514,4 +518,196 @@ async def unblock_user(callback: types.CallbackQuery, session):
     await callback.answer()
     await orm_unblock_user(session, callback.data.split('_')[-1])
     await callback.message.answer("✅ Пользователь разблокирован")
+
+
+
+
+# Получить список серверов
+@admin_private_router.callback_query(F.data == 'severs_list')
+async def choose_category(callback_query: types.CallbackQuery, session):
+    await callback_query.answer()
+    
+
+    servers_list = await orm_get_servers(session)
+
+    for server in servers_list:
+        await callback_query.message.answer(
+            text=f"<b>Имя:</b> {server.name}\n<b>url:</b> {server.server_url}\n<b>Логин:</b> {server.login}\n<b>Пароль: {server.password}</b>", 
+            reply_markup=get_callback_btns(btns={'Изменить': f'editserver_{server.id}', 'Удалить': f'deleteserver_{server.id}'})
+        )
+    
+    if servers_list:
+        await callback_query.message.answer(
+                text="Вот список серверов ⬆", 
+                reply_markup=get_callback_btns(btns={'Добавить новый тариф': f'addserver', 'Добавить единоразовый платеж': f'addonepay'})
+            )
+    else:
+        await callback_query.message.answer(
+                text="Серверов пока нет", 
+                reply_markup=get_callback_btns(btns={'Добавить новый тариф': f'addserver', 'Добавить единоразовый платеж': f'addonepay'})
+            )
+
+
+# FSM для добавления тарифов
+class FSMAddServer(StatesGroup):
+    name = State()
+    url = State()
+    login = State()
+    password = State()
+
+# Undo text for add tariff FSM
+FSMAddTariff_undo_text = {
+    'FSMAddServer:name': 'Введите имя сервера заново',
+    'FSMAddServer:url': 'Введите url на админ панель сервера заново',
+    'FSMAddServer:login': 'Введите логин админ панели сервера заново',
+    'FSMAddServer:password': 'Введите пароль админ панели сервера заново',
+}
+
+
+# Back handler for FSMAddTariff
+@admin_private_router.message(StateFilter('FSMAddServer'), F.text.in_({'/назад', 'назад'}))
+async def back_step_add_tariff(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state == FSMAddTariff.name.state:
+        await message.answer('Предыдущего шага нет, введите название тарифа или напишите "отмена"')
+        return
+    previous = None
+    for step in FSMAddTariff.all_states:
+        if step.state == current_state:
+            if previous is not None:
+                await state.set_state(previous.state)
+                await message.answer(f"Ок, вы вернулись к прошлому шагу. {FSMAddTariff_undo_text[previous.state]}")
+            return
+        previous = step
+
+
+@admin_private_router.callback_query(StateFilter(None), F.data == "addserver")
+async def add_product_description(callback: types.CallbackQuery, state: FSMContext):
+    
+    await callback.message.answer('Введите имя сервера (оно будет отображаться пользователя при выборе сервера):')
+    await state.set_state(FSMAddServer.name)
+
+
+@admin_private_router.message(FSMAddServer.name)
+async def add_product_description(message, state: FSMContext):
+    await state.update_data(name=message.text)
+    await message.answer('Введите url на админ панель сервера:')
+    await state.set_state(FSMAddServer.url)
+
+
+@admin_private_router.message(FSMAddServer.url)
+async def add_product_description(message: types.Message, state: FSMContext):
+    await state.update_data(url=message.text)
+    await message.answer('Введите логин админ панели сервера:')
+    
+    await state.set_state(FSMAddServer.login)
+    
+
+
+@admin_private_router.message(FSMAddServer.login)
+async def add_product_description(message: types.Message, state: FSMContext):
+    await state.update_data(login=message.text)
+    await message.answer('Введите пароль админ панели сервера:')
+
+    await state.set_state(FSMAddServer.password)
+
+
+@admin_private_router.message(FSMAddServer.password)
+async def add_product(message: types.Message, state: FSMContext, session):
+    await state.update_data(password=message.text)
+    await message.answer('✅ Сервер добавлен')
+    data = await state.get_data()
+    await orm_add_tariff(session=session, data=data)
+    await state.clear()
+    
+
+
+# Удаление сервера из базы
+@admin_private_router.callback_query(F.data.startswith('deleteserver_'))
+async def delete_product(callback_query: types.CallbackQuery, session):
+    await callback_query.answer()
+    await orm_delete_server(session, callback_query.data.split('_')[-1])
+    await callback_query.message.answer("✅ Сервер удален")
+    await callback_query.message.delete()
+
+
+class FSMEditServer(StatesGroup):
+    name = State()
+    url = State()
+    login = State()
+    password = State()
+
+# Undo text for add tariff FSM
+FSMAddTariff_undo_text = {
+    'FSMEditServer:name': 'Введите имя сервера заново',
+    'FSMEditServer:url': 'Введите url на админ панель сервера заново',
+    'FSMEditServer:login': 'Введите логин админ панели сервера заново',
+    'FSMEditServer:password': 'Введите пароль админ панели сервера заново',
+}
+
+
+# Back handler for FSMAddTariff
+@admin_private_router.message(StateFilter('FSMEditServer'), F.text.in_({'/назад', 'назад'}))
+async def back_step_add_tariff(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state == FSMEditServer.name.state:
+        await message.answer('Предыдущего шага нет, введите название тарифа или напишите "отмена"')
+        return
+    previous = None
+    for step in FSMEditServer.all_states:
+        if step.state == current_state:
+            if previous is not None:
+                await state.set_state(previous.state)
+                await message.answer(f"Ок, вы вернулись к прошлому шагу. {FSMAddTariff_undo_text[previous.state]}")
+            return
+        previous = step
+
+
+@admin_private_router.callback_query(StateFilter(None), F.data == "editserver")
+async def add_product_description(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(server_id=callback.data.split('_')[-1])
+    
+    await callback.message.answer('Введите имя сервера (оно будет отображаться пользователя при выборе сервера):')
+    await state.set_state(FSMEditServer.name)
+
+
+@admin_private_router.message(FSMEditServer.name)
+async def add_product_description(message, state: FSMContext):
+    await state.update_data(name=message.text)
+    await message.answer('Введите url на админ панель сервера:')
+    await state.set_state(FSMEditServer.url)
+
+
+@admin_private_router.message(FSMEditServer.url)
+async def add_product_description(message: types.Message, state: FSMContext):
+    await state.update_data(url=message.text)
+    await message.answer('Введите логин админ панели сервера:')
+    
+    await state.set_state(FSMEditServer.login)
+    
+
+
+@admin_private_router.message(FSMEditServer.login)
+async def add_product_description(message: types.Message, state: FSMContext):
+    await state.update_data(login=message.text)
+    await message.answer('Введите пароль админ панели сервера:')
+
+    await state.set_state(FSMEditServer.password)
+
+    
+
+@admin_private_router.message(FSMEditServer.password)
+async def edit_tariff_pay_id(message: types.Message, state: FSMContext, session):
+    if message.text == '.':
+        await state.update_data(password=None)
+    else:
+        await state.update_data(password=message.text)
+    data = await state.get_data()
+    # Оставляем только те поля, которые не None
+    update_fields = {k: v for k, v in data.items() if v is not None}
+    del update_fields['tariff_id']
+    await message.answer('✅ Сервер изменен')
+    await orm_edit_server(session=session, id=data['tariff_id'], fields=update_fields)
+    await state.clear()
+
 

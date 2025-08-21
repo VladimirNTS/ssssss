@@ -257,7 +257,7 @@ async def orm_edit_server(session, id: int, fields: dict):
 async def orm_get_servers(session):
     query = select(Payments)
     result = await session.execute(query)
-    return result.scalar().all() 
+    return result.scalars().all() 
 
 
 async def orm_get_server(session, id):
