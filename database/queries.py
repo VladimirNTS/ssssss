@@ -85,6 +85,15 @@ async def orm_change_user_status(session: AsyncSession, user_id, new_status, sub
     await session.commit()
 
 
+async def orm_change_user_server(session: AsyncSession, user_id, server):
+    
+    query = update(User).where(User.id == user_id).values(
+            server=server
+        )
+    await session.execute(query)
+    await session.commit()
+
+
 async def orm_get_users(session: AsyncSession):
     '''Возвращает список пользвателей
     

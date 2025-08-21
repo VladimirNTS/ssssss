@@ -21,10 +21,10 @@ headers = {
     # 'Cookie': 'lang=ru-RU; ...',
 }
 
-async def auth(server):
+async def auth(server, login, password):
     data = {
-        'username': os.getenv('SKY_USERNAME'),
-        'password': os.getenv('SKY_PASSWORD'),
+        'username': login,
+        'password': password,
         'twoFactorCode': '',
     }
     print(data)

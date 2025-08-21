@@ -20,6 +20,7 @@ from database.queries import (
     orm_get_user,
     orm_get_user_by_id,
     orm_add_user,
+    orm_change_user_server,
     orm_get_servers,
     orm_get_server,
     orm_add_server,
@@ -133,6 +134,7 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
     user = await orm_get_user(session, callback.from_user.id)
     tariffs = await orm_get_tariffs(session)
     btns = {"⬅ Назад": "chooseserver"}
+    await orm_change_user_server(session, user.id, callback.data.split('_')[-1])
 
     for i in tariffs:
         if i.recuring:
@@ -147,7 +149,6 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
             await callback.answer()
             return
         raise
-
 
 
 @user_private_router.callback_query(F.data.startswith('chousen_'))
@@ -238,7 +239,7 @@ async def orders_list(callback: types.CallbackQuery, session):
 
 
 @user_private_router.callback_query(F.data.startswith('other_products'))
-async def check_subscription(callback: types.CallbackQuery, session):
+async def other_products(callback: types.CallbackQuery, session):
         try:
             await callback.message.edit_caption(
                 caption="Другие продукты:",
@@ -256,16 +257,23 @@ async def check_subscription(callback: types.CallbackQuery, session):
 @user_private_router.callback_query(F.data.startswith('check_subscription'))
 async def check_subscription(callback: types.CallbackQuery, session):
     user_id = callback.from_user.id
+    
+    if callback.data.split('_')[-1]:
+        user = await orm_get_user(session, user_id)
+
+        await orm_change_user_server(session, user.id, callback.data.split('_')[-1])
+    
     user = await orm_get_user(session, user_id)
     tariff = await orm_get_tariff(session, user.status)
+    server = await orm_get_server(session, user.server)
 
-    url = f'v2raytun://import/{user.tun_id}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(user.name)}'
+    url = f'vless://{user.tun_id}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(user.name)}'
     
     if user.status > 0:
         try:
             await callback.message.edit_caption(
-                caption=f"Текущий тариф: {tariff.sub_time} месяцев, {tariff.price} ₽ {'(Подписка)' if tariff.recuring == True else '(Единоразовая покупка)'}\nВаша подписка действует до {user.sub_end.date()}. \n\nВаша ссылка для подключения: <code>{url}</code>",
-                reply_markup=get_inlineMix_btns(btns={"Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', 'Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
+                caption=f"Текущий тариф: {tariff.sub_time} месяцев, {tariff.price} ₽ {'(Подписка)' if tariff.recuring == True else '(Единоразовая покупка)'}\Сервер: {server.name}\nВаша подписка действует до {user.sub_end.date()}. \n\nВаша ссылка для подключения: <code>{url}</code>",
+                reply_markup=get_inlineMix_btns(btns={"Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', 'Сменить сервер': 'changeserver','Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
             )
         except TelegramBadRequest as e:
             if "message is not modified" in str(e):
@@ -273,6 +281,33 @@ async def check_subscription(callback: types.CallbackQuery, session):
             raise
     else:
         await callback.answer("У вас нет активной подписки")
+
+
+
+@user_private_router.callback_query(F.data == 'changeserver')
+async def change_server(callback: types.CallbackQuery, session):
+    btns = {}
+    servers = await orm_get_servers(session)
+
+    for i in servers:
+        btns[i.name] = f'changesubscribe_{i.id}'
+    
+    btns['⬅ Назад'] = 'check_subscription'
+
+    try:
+        await callback.message.edit_caption(
+            caption="Выберите сервер:",
+            reply_markup=get_inlineMix_btns(
+                btns=btns,
+                sizes=(1,)
+            )
+        )
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            await callback.answer()
+            return
+        raise
+
 
 
 @user_private_router.callback_query(F.data.startswith('cancelsub_'))

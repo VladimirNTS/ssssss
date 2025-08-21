@@ -30,7 +30,8 @@ from database.queries import (
     orm_get_tariff,
     orm_get_last_payment_id,
     orm_new_payment,
-    orm_get_payment
+    orm_get_payment,
+    orm_get_server,
 )
 from skynetapi.skynetapi import auth, add_customer, edit_customer_date
 
@@ -114,13 +115,14 @@ async def release(*, body: PayResponce):
     payment = await orm_get_payment(async_session, body.InvId)
     user = await orm_get_user_by_id(async_session, payment.user_id)
     tariff = await orm_get_tariff(async_session, payment.tariff_id)
+    server = await orm_get_server(async_session, user.server)
 
     if not user.tun_id:
         if tariff.recuring:
             current_date = datetime.now()
             new_date = current_date + relativedelta(months=tariff.sub_time)
 
-            new_vpn_user = await add_customer(cookies=await auth(), email=user.name, expire_time=(new_date.timestamp() * 1000), limit_ip=tariff.devices)
+            new_vpn_user = await add_customer(cookies=await auth(server.server_url, server.login, server.password), email=user.name, expire_time=(new_date.timestamp() * 1000), limit_ip=tariff.devices)
             await create_subscription(new_vpn_user, async_session, user.id, tariff, bot)
             print(new_vpn_user, async_session, user.id, tariff, bot)
     if user.invited_by:
