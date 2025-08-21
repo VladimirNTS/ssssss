@@ -19,6 +19,7 @@ class User(Base):
     sub_end: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     invited_by: Mapped[int] = mapped_column(BigInteger, nullable=True)
     blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    server: Mapped[int] = mapped_column(Integer())
 
 
 class Admin:
@@ -55,3 +56,14 @@ class Payments(Base):
     user_id: Mapped[int] = mapped_column(Integer)
     tariff_id: Mapped[int] = mapped_column(Integer)
     paid: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Server(Base):
+    __tablename__ = 'servers'
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50))
+    server_url: Mapped[str] = mapped_column(String(100))
+    login: Mapped[str] = mapped_column(String(50))
+    password: Mapped[str] = mapped_column(String(50))
+

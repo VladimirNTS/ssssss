@@ -20,6 +20,10 @@ from database.queries import (
     orm_get_user,
     orm_get_user_by_id,
     orm_add_user,
+    orm_get_servers,
+    orm_get_server,
+    orm_add_server,
+    orm_edit_server
 )
 
 user_private_router = Router()
@@ -71,7 +75,7 @@ async def start(callback: types.CallbackQuery):
 @user_private_router.callback_query(F.data=='back_menu')
 async def start(callback: types.CallbackQuery):
     btns = {
-                "📡 Подключить": "choosesubscribe",
+                "📡 Подключить": "chooseserver",
                 "🔍 Проверить подписку": "check_subscription",
                 "📲 Установить VPN": "install",
                 "👫 Пригласить": "referral_program",
@@ -99,11 +103,33 @@ async def start(callback: types.CallbackQuery):
         raise
 
 
-@user_private_router.callback_query(F.data == 'choosesubscribe')
+@user_private_router.callback_query(F.data == 'chooseserver')
+async def choose_server(callback: types.CallbackQuery, session):
+    btns = {}
+    servers = await orm_get_servers(session)
+
+    for i in servers:
+        btns[i.name] = f'choosesubscribe_{i.id}'
+    
+    btns['⬅ Назад'] = 'back_menu'
+
+    try:
+        await callback.message.edit_caption(
+            caption="Возможность подключить любые устройства\nДо 4 устройств одновременно \nБез ограничений по скорости и тарифу",
+            reply_markup=btns
+        )
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            await callback.answer()
+            return
+        raise
+
+
+@user_private_router.callback_query(F.data.startswith('choosesubscribe_'))
 async def choose_subscribe(callback: types.CallbackQuery, session):
     user = await orm_get_user(session, callback.from_user.id)
     tariffs = await orm_get_tariffs(session)
-    btns = {"⬅ Назад": "back_menu"}
+    btns = {"⬅ Назад": "chooseserver"}
 
     for i in tariffs:
         if i.recuring:

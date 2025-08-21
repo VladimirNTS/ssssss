@@ -4,7 +4,7 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database.models import Tariff, User, Admin, FAQ, Payments
+from database.models import Tariff, User, Admin, FAQ, Payments, Server
 
 
 # Tariffs
@@ -226,3 +226,43 @@ async def orm_get_last_payment_id(session: AsyncSession):
     payment = result.scalar_one_or_none()
     
     return payment.id if payment else 0
+
+
+async def orm_add_server(session: AsyncSession, data):
+    obj = Server(
+        server_name=date['server_name'],
+        server_url=date['server_url'],
+        login=data['login'],
+        password=data['password']
+
+    )
+    session.add(obj)
+    await session.commit()
+
+
+async def orm_delete_server(session, id):
+    query = delete(Server).where(Server.id == id)
+    await session.execute(query)
+    await session.commit
+
+
+async def orm_edit_server(session, id: int, fields: dict):
+    if not fields:
+        return
+    query = update(FAQ).where(FAQ.id == id).values(**fields)
+    await session.execute(query)
+    await session.commit()
+
+
+async def orm_get_servers(session):
+    query = select(Payments)
+    result = await session.execute(query)
+    return result.scalar().all() 
+
+
+async def orm_get_server(session, id):
+    query = select(Payments).where(Payments.id == id)
+    result = await session.execute(query)
+    return result.scalar()
+
+
