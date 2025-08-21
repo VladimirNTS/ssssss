@@ -19,7 +19,7 @@ class User(Base):
     sub_end: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     invited_by: Mapped[int] = mapped_column(BigInteger, nullable=True)
     blocked: Mapped[bool] = mapped_column(Boolean, default=False)
-    server: Mapped[int] = mapped_column(Integer())
+    server: Mapped[int] = mapped_column(Integer(), nullable=True)
 
 
 class Admin:

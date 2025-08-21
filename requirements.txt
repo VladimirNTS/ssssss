@@ -11,3 +11,4 @@ uvicorn
 qrcode
 fastapi[standard]
 apscheduler
+pillow

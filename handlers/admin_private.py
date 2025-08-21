@@ -46,6 +46,7 @@ async def start(message: types.Message):
         '📃 Список заказов': 'orders_list',
         '📫 Рассылка': 'send',
         '⚙ Редактировать FAQ': 'edit_faq',
+        '⚙ Управления серверами': 'servers_list'
     }, sizes=(2,2,1)))
 	
 
@@ -523,7 +524,7 @@ async def unblock_user(callback: types.CallbackQuery, session):
 
 
 # Получить список серверов
-@admin_private_router.callback_query(F.data == 'severs_list')
+@admin_private_router.callback_query(F.data == 'servers_list')
 async def choose_category(callback_query: types.CallbackQuery, session):
     await callback_query.answer()
     
@@ -539,12 +540,12 @@ async def choose_category(callback_query: types.CallbackQuery, session):
     if servers_list:
         await callback_query.message.answer(
                 text="Вот список серверов ⬆", 
-                reply_markup=get_callback_btns(btns={'Добавить новый тариф': f'addserver', 'Добавить единоразовый платеж': f'addonepay'})
+                reply_markup=get_callback_btns(btns={'Добавить новый сервер': f'addserver'})
             )
     else:
         await callback_query.message.answer(
                 text="Серверов пока нет", 
-                reply_markup=get_callback_btns(btns={'Добавить новый тариф': f'addserver', 'Добавить единоразовый платеж': f'addonepay'})
+                reply_markup=get_callback_btns(btns={'Добавить новый сервер': f'addserver'})
             )
 
 
@@ -617,7 +618,7 @@ async def add_product(message: types.Message, state: FSMContext, session):
     await state.update_data(password=message.text)
     await message.answer('✅ Сервер добавлен')
     data = await state.get_data()
-    await orm_add_tariff(session=session, data=data)
+    await orm_add_server(session=session, data=data)
     await state.clear()
     
 

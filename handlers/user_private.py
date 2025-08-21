@@ -38,7 +38,7 @@ async def start(message: types.Message, session):
         await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=None)
 
     btns = {
-                "📡 Подключить": "choosesubscribe",
+                "📡 Подключить": "chooseserver",
                 "🔍 Проверить подписку": "check_subscription",
                 "📲 Установить VPN": "install",
                 "👫 Пригласить": "referral_program",
@@ -116,7 +116,10 @@ async def choose_server(callback: types.CallbackQuery, session):
     try:
         await callback.message.edit_caption(
             caption="Возможность подключить любые устройства\nДо 4 устройств одновременно \nБез ограничений по скорости и тарифу",
-            reply_markup=btns
+            reply_markup=get_inlineMix_btns(
+                btns=btns,
+                sizes=(1,)
+            )
         )
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):

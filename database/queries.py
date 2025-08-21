@@ -230,8 +230,8 @@ async def orm_get_last_payment_id(session: AsyncSession):
 
 async def orm_add_server(session: AsyncSession, data):
     obj = Server(
-        server_name=date['server_name'],
-        server_url=date['server_url'],
+        name=data['name'],
+        server_url=data['url'],
         login=data['login'],
         password=data['password']
 
@@ -249,19 +249,19 @@ async def orm_delete_server(session, id):
 async def orm_edit_server(session, id: int, fields: dict):
     if not fields:
         return
-    query = update(FAQ).where(FAQ.id == id).values(**fields)
+    query = update(Server).where(FAQ.id == id).values(**fields)
     await session.execute(query)
     await session.commit()
 
 
 async def orm_get_servers(session):
-    query = select(Payments)
+    query = select(Server)
     result = await session.execute(query)
     return result.scalars().all() 
 
 
 async def orm_get_server(session, id):
-    query = select(Payments).where(Payments.id == id)
+    query = select(Server).where(Payments.id == id)
     result = await session.execute(query)
     return result.scalar()
 
