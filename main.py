@@ -152,6 +152,7 @@ async def continue_sub(request: Request):
 async def webhook(request: Request) -> None:
     update = Update.model_validate(await request.json(), context={"bot": bot})
     await dp.feed_update(bot, update)
+    
 
 
 @app.get("/config")
