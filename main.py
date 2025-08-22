@@ -53,7 +53,7 @@ async def get_session(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    private = [BotCommand(command='start', description='Главное меню')]
+    private = [BotCommand(command='main_menu', description='Главное меню')]
 
     url_webhook = f'{os.getenv("PAY_PAGE_URL")}/bot_webhook'
     await bot.delete_my_commands(scope=BotCommandScopeAllPrivateChats())

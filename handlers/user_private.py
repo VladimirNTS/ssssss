@@ -32,7 +32,23 @@ from skynetapi.skynetapi import auth, add_customer, edit_customer_date
 user_private_router = Router()
 user_private_router.message.filter(BlockedUsersFilter())
 
-@user_private_router.message(Command("start"))
+
+@user_private_router.message(Command('start'))
+async def start(message):
+    await message.answer_photo(
+        photo=types.FSInputFile("img/banner.png"),
+        capture='<b>SkynetVPN — сервис защищённых подключений.</b>\n\n<b>Используя бота, вы подтверждаете, что ознакомились и принимаете условия <a href="https://skynetvpn.ru/terms-of-service.html">Публичной оферты</a> и <a href="https://skynetvpn.ru/terms-of-service.html">Политики обработки персональных данных</a>.</b>\n\nСервис не предназначен для обхода ограничений доступа к информации. Получение/распространение запрещённой информации в РФ запрещено.\n\nМы предоставляем техническую услугу по организации шифрованного соединения и не формируем/не контролируем содержимое трафика.\n\nПользователь обязуется соблюдать законодательство РФ (в т.ч. 149-ФЗ, 114-ФЗ, 436-ФЗ, 187-ФЗ).',
+        reply_markup=get_inlineMix_btns(
+            btns={
+                "Оферта": "https://skynetvpn.ru/terms-of-service.html",
+                "Политика ПДН": "https://skynetvpn.ru/privacy-policy.html",
+                "Продолжить": "back_menu"
+            }
+        )
+    )
+
+
+@user_private_router.message(Command("main_menu"))
 async def start(message: types.Message, session):
     args = message.text.split()[1:]
     if args:
@@ -55,7 +71,7 @@ async def start(message: types.Message, session):
 
     await message.answer_photo(
         photo=types.FSInputFile("img/banner.png"),
-        caption="<b>SkynetVPN это безопасный доступ в один клик</b>\nС нами Вы под надёжной защитой\nНикто не должен следить за тем, что вы смотрите\n\nПеред началом работы ознакомтись с <a href='https://skynetvpn.ru/terms-of-service.html'>публичной офертой</a>", 
+        caption="<b>SkyNetVPN — сервис шифрованных подключений.</b>\n\nМы не анализируем содержимое трафика и не ведём его содержательные логи. \n\nУстанавливается на:  <b>Windows / macOS / iOS / Android / Linux / Android TV. </b>\n\nТрафик со стороны сервиса не лимитируется. \nФактическая скорость соединения зависит от вашей сети и устройства.\n\n<b>Оплатите тариф и начинайте пользоваться.</b>", 
         reply_markup=get_inlineMix_btns(
             btns=btns,
             sizes=(1,1,1,1,2,2)
@@ -64,9 +80,9 @@ async def start(message: types.Message, session):
 
 
 @user_private_router.callback_query(F.data=='about')
-async def start(callback: types.CallbackQuery):
+async def about(callback: types.CallbackQuery):
     await callback.message.edit_caption(
-        caption='<b>О нас:</b>\nМы предоставляем доступ к VPN-сервису. Конкретные характеристики, сроки и стоимость услуг указаны в интерфейсе Telegram-бота или в <a href="https://skynetvpn.ru/terms-of-service.html">оферте</a>\n\n<b>Реквизиты исполнителя:</b>\nИндивидуальный предприниматель Мелконьян Елена Павловна\nИНН: 232017219889, ОГРНИП: 324237500172507',
+        caption='<b>О нас:</b>\n\nМы предоставляем техническую услугу по организации шифрованного соединения (VPN). Не являемся СМИ, не размещаем и не контролируем контент. Сервис не предназначен для обхода ограничений и доступа к запрещённой информации.\n\nХарактеристики, сроки и стоимость — в интерфейсе бота и в <a href="https://skynetvpn.ru/terms-of-service.html">Публичной оферте</a>.\n\n<b>Исполнитель</b>: \nИП Мелконьян Елена Павловна, ИНН 232017219889, ОГРНИП 324237500172507.\n\n<b>Контакты оператора ПДн</b>: \ne-mail: 555cent@mail.ru.',
         reply_markup=get_inlineMix_btns(
                     btns={"⬅ Назад": "back_menu"},
                     sizes=(1,)
@@ -76,7 +92,7 @@ async def start(callback: types.CallbackQuery):
 
 
 @user_private_router.callback_query(F.data=='back_menu')
-async def start(callback: types.CallbackQuery):
+async def back_menu(callback: types.CallbackQuery):
     btns = {
                 "📡 Подключить": "choosesubscribe",
                 "🔍 Проверить подписку": "check_subscription",
@@ -84,11 +100,11 @@ async def start(callback: types.CallbackQuery):
                 "👫 Пригласить": "referral_program",
                 "❓ FAQ": "faq", "☎ Поддержка": "https://t.me/skynetaivpn_support",
                 "🛒 Другие продукты": "other_products",
-                "📄 О нас": "about"
+                "📄 Оферта | Политика ПДн": "about"
     }
     photo = types.InputMediaPhoto(
 			media=types.FSInputFile("img/banner.png"),  # или BufferedInputFile для файла в памяти
-			caption=f"<b>SkynetVPN это безопасный доступ в один клик.</b>\nС нами Вы под надёжной защитой.\nНикто не должен следить за тем, что вы смотрите."
+			caption=f"<b>SkynetVPN — сервис защищённых подключений.</b>\n\nМы не анализируем содержимое трафика и не ведём его содержательные логи.\n\nТрафик со стороны сервиса не лимитируется; фактическая скорость зависит от сети и устройства.\n\n<b>Оплатите тариф и начинайте пользоваться.</b>"
 		)
 	
     try:
@@ -110,7 +126,7 @@ async def start(callback: types.CallbackQuery):
 async def choose_subscribe(callback: types.CallbackQuery, session):
     user = await orm_get_user(session, callback.from_user.id)
     tariffs = await orm_get_tariffs(session)
-    btns = {"⬅ Назад": "back_menu"}
+    btns = {}
 
     servers = await orm_get_servers(session)
     countries = ''
@@ -127,9 +143,11 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
             btns[f"{i.sub_time} мес., {i.price} ₽, кол. устройств {i.devices}"] = f"chousen_{i.id}|{user.id}"
         else:
             pass
+
+    btns["⬅ Назад"] = "back_menu"
     
     try:
-        await callback.message.edit_caption(caption="<b>⚡️ Вы покупаете премиум подписку на Skynet VPN</b>\n\n● Возможность подключить любые устройства\n● До 4 устройств одновременно \n● Без ограничений по скорости и тарифу\n\n🌍 <b>Доступные страны:</b>", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
+        await callback.message.edit_caption(caption=f"<b>⚡️ Вы покупаете премиум подписку на Skynet VPN</b>\n\n● Возможность подключить любые устройства\n● До 4 устройств одновременно \n● Без лимитов и ограничений по скорости\n\nСписок поддерживаемых устройств:\n\nAndroid (Android 7.0 или новее.) | Windows (Windows 8.1 или новее.) | iOS, iPadOS (iOS 16.0 или новее.) | macOS процессоры M  (macOS 13.0 или новее) | macOS  c процессором Intel (macOS 11.0 или новее.) | Android TV ( Android 7.0 или новее.) | Linux\n\n🌍 <b>Доступные страны:</b>\n{countries}", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             await callback.answer()
@@ -187,7 +205,7 @@ async def referral_program_handler(callback: types.CallbackQuery):
         # Отправляем файл пользователю
         photo = types.InputMediaPhoto(
 			media=types.FSInputFile(qr_filename),  # или BufferedInputFile для файла в памяти
-			caption=f"Приводи друзей и бесплатно продлевай свою подписку за их покупки:\nЗа 1 мес - 15 дней \nЗа 6 мес - 30 дней \nЗа 12 мес - 45 дней\n\nВаша Реферальная ссылка:\n<a src='{referral_link}'>{referral_link}</a>"
+			caption=f"Приглашайте друзей и получайте бонусы:\n\n<b>За каждую покупку приглашенных пользователей Вы получите к вашей подписке:</b>\n\nЗа 1 мес. – 15 дней\nЗа 6 мес. – 30 дней\nЗа 12 мес. – 45 дней\n\n<b>Ваша реферальная ссылка:</b>\n<code>{referral_link}</code>"
 		)
         try:
             await callback.message.edit_media(media=photo, reply_markup=get_callback_btns(btns={ "⬅ Назад": "back_menu"}))
