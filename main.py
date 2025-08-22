@@ -109,27 +109,30 @@ async def buy(
 
 
 @app.post("/get_payment/")
-async def release(*, body: PayResponce):
+async def choose_server(*, body: PayResponce):
     async_session = await get_session(session_pool=session)
 
     payment = await orm_get_payment(async_session, body.InvId)
     user = await orm_get_user_by_id(async_session, payment.user_id)
     tariff = await orm_get_tariff(async_session, payment.tariff_id)
-    server = await orm_get_server(async_session, user.server)
+    
+    btns = {}
+    servers = await orm_get_servers(async_session)
 
-    if not user.tun_id:
-        if tariff.recuring:
-            current_date = datetime.now()
-            new_date = current_date + relativedelta(months=tariff.sub_time)
-
-            new_vpn_user = await add_customer(cookies=await auth(server.server_url, server.login, server.password), email=user.name, expire_time=(new_date.timestamp() * 1000), limit_ip=tariff.devices)
-            await create_subscription(new_vpn_user, async_session, user.id, tariff, bot)
-            print(new_vpn_user, async_session, user.id, tariff, bot)
-    if user.invited_by:
-            pass
-
+    for i in servers:
+        btns[i.name] = f'chooseserver_{i.id}_{body.InvId}'
+    
+    await bot.sand_message(
+        user.user_id,
+        text="<b>Вы купили подписку на Skynet VPN\n\nВыберите сервер:</b>",
+        reply_markup=get_inlineMix_btns(
+            btns=btns,
+            sizes=(1,)
+        )
+    )
 
     return f'OK{body.InvId}'
+
 
 
 @app.get("/continue_sub")

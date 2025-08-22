@@ -7,6 +7,7 @@ from aiogram.filters import Command
 import time
 import os
 from urllib.parse import quote
+from dateutil.relativedelta import relativedelta
 
 import qrcode
 from filters.users_filter import BlockedUsersFilter
@@ -26,6 +27,7 @@ from database.queries import (
     orm_add_server,
     orm_edit_server
 )
+from skynetapi.skynetapi import auth, add_customer, edit_customer_date
 
 user_private_router = Router()
 user_private_router.message.filter(BlockedUsersFilter())
@@ -39,7 +41,7 @@ async def start(message: types.Message, session):
         await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=None)
 
     btns = {
-                "📡 Подключить": "chooseserver",
+                "📡 Подключить": "choosesubscribe",
                 "🔍 Проверить подписку": "check_subscription",
                 "📲 Установить VPN": "install",
                 "👫 Пригласить": "referral_program",
@@ -64,7 +66,7 @@ async def start(message: types.Message, session):
 @user_private_router.callback_query(F.data=='about')
 async def start(callback: types.CallbackQuery):
     await callback.message.edit_caption(
-        caption='<b>О нас</b>\nМы предоставляем доступ VPN-сервису. Конкретные характеристики, сроки и стоимость услуг указанать в интерфейсе Telegram-бота или в <a href="https://skynetvpn.ru/terms-of-service.html">оферте</a>\n\n<b>Реквизиты исполнителя</b>\nИндивидуальный предприниматель Мелконьян Елена Павловна\nИНН: 232017219889, ОГРНИП: 324237500172507',
+        caption='<b>О нас:</b>\nМы предоставляем доступ к VPN-сервису. Конкретные характеристики, сроки и стоимость услуг указаны в интерфейсе Telegram-бота или в <a href="https://skynetvpn.ru/terms-of-service.html">оферте</a>\n\n<b>Реквизиты исполнителя:</b>\nИндивидуальный предприниматель Мелконьян Елена Павловна\nИНН: 232017219889, ОГРНИП: 324237500172507',
         reply_markup=get_inlineMix_btns(
                     btns={"⬅ Назад": "back_menu"},
                     sizes=(1,)
@@ -76,7 +78,7 @@ async def start(callback: types.CallbackQuery):
 @user_private_router.callback_query(F.data=='back_menu')
 async def start(callback: types.CallbackQuery):
     btns = {
-                "📡 Подключить": "chooseserver",
+                "📡 Подключить": "choosesubscribe",
                 "🔍 Проверить подписку": "check_subscription",
                 "📲 Установить VPN": "install",
                 "👫 Пригласить": "referral_program",
@@ -104,38 +106,22 @@ async def start(callback: types.CallbackQuery):
         raise
 
 
-@user_private_router.callback_query(F.data == 'chooseserver')
-async def choose_server(callback: types.CallbackQuery, session):
-    btns = {}
-    servers = await orm_get_servers(session)
-
-    for i in servers:
-        btns[i.name] = f'choosesubscribe_{i.id}'
-    
-    btns['⬅ Назад'] = 'back_menu'
-
-    try:
-        await callback.message.edit_caption(
-            caption="Возможность подключить любые устройства\nДо 4 устройств одновременно \nБез ограничений по скорости и тарифу",
-            reply_markup=get_inlineMix_btns(
-                btns=btns,
-                sizes=(1,)
-            )
-        )
-    except TelegramBadRequest as e:
-        if "message is not modified" in str(e):
-            await callback.answer()
-            return
-        raise
-
-
-@user_private_router.callback_query(F.data.startswith('choosesubscribe_'))
+@user_private_router.callback_query(F.data.startswith('choosesubscribe'))
 async def choose_subscribe(callback: types.CallbackQuery, session):
     user = await orm_get_user(session, callback.from_user.id)
     tariffs = await orm_get_tariffs(session)
-    btns = {"⬅ Назад": "chooseserver"}
-    await orm_change_user_server(session, user.id, callback.data.split('_')[-1])
+    btns = {"⬅ Назад": "back_menu"}
 
+    servers = await orm_get_servers(session)
+    countries = ''
+
+    for i in len(servers):
+        if i == len(servers):
+            countries += f'└ {servers[i].name}'
+        else:
+            countries += f'├ {servers[i].name}'
+
+        
     for i in tariffs:
         if i.recuring:
             btns[f"{i.sub_time} мес., {i.price} ₽, кол. устройств {i.devices}"] = f"chousen_{i.id}|{user.id}"
@@ -143,7 +129,7 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
             pass
     
     try:
-        await callback.message.edit_caption(caption="Вы покупаете подписку на SkyNetVPN. Подписку можно отменить в любом время", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
+        await callback.message.edit_caption(caption="<b>⚡️ Вы покупаете премиум подписку на Skynet VPN</b>\n\n● Возможность подключить любые устройства\n● До 4 устройств одновременно \n● Без ограничений по скорости и тарифу\n\n🌍 <b>Доступные страны:</b>", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             await callback.answer()
@@ -157,7 +143,7 @@ async def show_chousen(callback, session):
         tariff = await orm_get_tariff(session, callback.data.split('_')[-1].split('|')[0])
         
         await callback.message.edit_caption(
-            caption=f"Вы выбрали подписку: {tariff.sub_time} мес.\nСтоимость: {tariff.price} руб.\nСпособ оплаты: Банковская карта\nВремя на оплату: 10 минут\n\nПосле оплаты конфигурация будет отправлена в течение минуты.",
+            caption=f"Вы выбрали подписку: <b>{tariff.sub_time} мес.</b>\nСтоимость: <b>{tariff.price} руб.</b>\nСпособ оплаты: <b>Банковская карта</b>\nВремя на оплату: <b>10 минут</b>\n\nПосле оплаты <b>конфигурация будет отправлена в течение минуты.</b>",
             reply_markup=get_inlineMix_btns(
                 btns={
                     'Оплатить': f"{os.getenv('PAY_PAGE_URL')}/new_subscribe?user_id={callback.data.split('_')[-1].split('|')[1]}&sub_id={tariff.id}", 
@@ -280,7 +266,7 @@ async def check_subscription(callback: types.CallbackQuery, session):
                 return
             raise
     else:
-        await callback.answer("У вас нет активной подписки")
+        await callback.answer("У вас нет активной подписки", show_alert=True)
 
 
 
@@ -363,14 +349,56 @@ async def install(callback):
 
 
 # Создание подписки для пользователя после оплаты
-async def create_subscription(sub_data: dict, session, user_id, tariff, bot):
-    date = sub_data['expire_time'] / 1000 
-    date = datetime.fromtimestamp(date)
+@user_private_router.callback_query(F.data.startswith('chooseserver_'))
+async def create_subscription(callback, session):
+    payment = await orm_get_payment(async_session, callback.data.split('_')[-1])
+    if payment.paid == True:
+        return
+    user = await orm_get_user_by_id(async_session, payment.user_id)
+    tariff = await orm_get_tariff(async_session, payment.tariff_id)
+    server = await orm_get_server(async_session, user.server)
+    
+    if user.status == 0:
+        current_date = datetime.now()
+        new_date = current_date + relativedelta(months=tariff.sub_time)
 
-    await orm_change_user_status(session, user_id=user_id, new_status=tariff.id, tun_id=str(sub_data['id']), sub_end=date)
-    url = f'vless://{sub_data["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(sub_data["email"])}'
-    await bot.send_message(user_id, f"<b>Оплата прошла успешно!</b>\nВаша подписка на активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку! \n\nЕсли у вас есть вопросы, не стесняйтесь задавать.", reply_markup=get_callback_btns(btns={ "⬅ Назад": "back_menu"}))
+        new_vpn_user = await add_customer(
+            server.server_url,
+            auth(server.server_url, server.login, server.password), 
+            user.name,
+            (new_date.timestamp() * 1000),
+            tariff.devices
+        )
 
+        date = new_vpn_user['expire_time'] / 1000 
+        date = datetime.fromtimestamp(date)
+
+        await orm_change_user_status(session, user_id=user_id, new_status=tariff.id, tun_id=str(sub_data['id']), sub_end=date)
+        url = f'vless://{sub_data["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(sub_data["email"])}'
+        await bot.send_message(user_id, f"<b>Подписка оформлена!</b>\nВаша подписка на активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!", reply_markup=get_callback_btns(btns={ "⬅ Назад": "back_menu"}))
+
+
+async def release():
+    async_session = await get_session(session_pool=session)
+
+    payment = await orm_get_payment(async_session, body.InvId)
+    user = await orm_get_user_by_id(async_session, payment.user_id)
+    tariff = await orm_get_tariff(async_session, payment.tariff_id)
+    server = await orm_get_server(async_session, user.server)
+
+    if not user.tun_id:
+        if tariff.recuring:
+            current_date = datetime.now()
+            new_date = current_date + relativedelta(months=tariff.sub_time)
+
+            new_vpn_user = await add_customer(cookies=await auth(server.server_url, server.login, server.password), email=user.name, expire_time=(new_date.timestamp() * 1000), limit_ip=tariff.devices)
+            await create_subscription(new_vpn_user, async_session, user.id, tariff, bot)
+            print(new_vpn_user, async_session, user.id, tariff, bot)
+    if user.invited_by:
+            pass
+
+
+    
 
 async def continue_subscription(sub_data: dict, session, user_id, tariff, bot):
     date = sub_data['expire_time'] / 1000 
