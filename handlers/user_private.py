@@ -271,6 +271,8 @@ async def check_subscription(callback: types.CallbackQuery, session):
     
     user = await orm_get_user(session, user_id)
     tariff = await orm_get_tariff(session, user.status)
+    with open('log.txt', 'w') as f:
+        f.write(str(user.server) + " " + str(user.name))
     server = await orm_get_server(session, user.server)
 
     url = f'vless://{user.tun_id}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(user.name)}'

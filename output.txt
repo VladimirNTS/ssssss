@@ -1,0 +1,84 @@
+2025-08-23 16:34:24,123 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 16:34:24,124 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("user")
+2025-08-23 16:34:24,124 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 16:34:24,124 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tariffs")
+2025-08-23 16:34:24,124 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 16:34:24,125 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("faq")
+2025-08-23 16:34:24,125 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 16:34:24,125 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("payments")
+2025-08-23 16:34:24,125 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 16:34:24,125 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("servers")
+2025-08-23 16:34:24,125 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 16:34:24,126 INFO sqlalchemy.engine.Engine COMMIT
+2025-08-23 16:34:26,657 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 16:34:26,662 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+FROM user 
+WHERE user.user_id = ?
+2025-08-23 16:34:26,662 INFO sqlalchemy.engine.Engine [generated in 0.00018s] (7010343980,)
+2025-08-23 16:34:26,664 INFO sqlalchemy.engine.Engine UPDATE user SET server=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
+2025-08-23 16:34:26,664 INFO sqlalchemy.engine.Engine [generated in 0.00014s] ('subscription', 1)
+2025-08-23 16:34:26,664 INFO sqlalchemy.engine.Engine COMMIT
+2025-08-23 16:34:26,694 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 16:34:26,695 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+FROM user 
+WHERE user.user_id = ?
+2025-08-23 16:34:26,695 INFO sqlalchemy.engine.Engine [cached since 0.03311s ago] (7010343980,)
+2025-08-23 16:34:26,696 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
+FROM tariffs 
+WHERE tariffs.id = ?
+2025-08-23 16:34:26,696 INFO sqlalchemy.engine.Engine [generated in 0.00012s] (1,)
+subscription
+2025-08-23 16:34:26,698 INFO sqlalchemy.engine.Engine SELECT servers.id, servers.name, servers.server_url, servers.login, servers.password, servers.indoub_id, servers.created, servers.updated 
+FROM servers 
+WHERE servers.id = ?
+2025-08-23 16:34:26,698 INFO sqlalchemy.engine.Engine [generated in 0.00011s] ('subscription',)
+2025-08-23 16:34:26,699 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     10.0.0.1:34268 - "POST /bot_webhook HTTP/1.1" 500 Internal Server Error
+2025-08-23 16:34:26,741 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 16:34:26,741 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+FROM user 
+WHERE user.user_id = ?
+2025-08-23 16:34:26,741 INFO sqlalchemy.engine.Engine [cached since 0.07959s ago] (7010343980,)
+2025-08-23 16:34:26,742 INFO sqlalchemy.engine.Engine UPDATE user SET server=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
+2025-08-23 16:34:26,742 INFO sqlalchemy.engine.Engine [cached since 0.07853s ago] ('subscription', 1)
+2025-08-23 16:34:26,743 INFO sqlalchemy.engine.Engine COMMIT
+2025-08-23 16:34:26,743 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 16:34:26,743 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+FROM user 
+WHERE user.user_id = ?
+2025-08-23 16:34:26,744 INFO sqlalchemy.engine.Engine [cached since 0.08182s ago] (7010343980,)
+2025-08-23 16:34:26,744 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
+FROM tariffs 
+WHERE tariffs.id = ?
+2025-08-23 16:34:26,744 INFO sqlalchemy.engine.Engine [cached since 0.04787s ago] (1,)
+subscription
+2025-08-23 16:34:26,745 INFO sqlalchemy.engine.Engine SELECT servers.id, servers.name, servers.server_url, servers.login, servers.password, servers.indoub_id, servers.created, servers.updated 
+FROM servers 
+WHERE servers.id = ?
+2025-08-23 16:34:26,745 INFO sqlalchemy.engine.Engine [cached since 0.04709s ago] ('subscription',)
+2025-08-23 16:34:26,745 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     10.0.0.1:34282 - "POST /bot_webhook HTTP/1.1" 500 Internal Server Error
+2025-08-23 16:34:28,787 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 16:34:28,787 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+FROM user 
+WHERE user.user_id = ?
+2025-08-23 16:34:28,788 INFO sqlalchemy.engine.Engine [cached since 2.126s ago] (7010343980,)
+2025-08-23 16:34:28,788 INFO sqlalchemy.engine.Engine UPDATE user SET server=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
+2025-08-23 16:34:28,788 INFO sqlalchemy.engine.Engine [cached since 2.125s ago] ('subscription', 1)
+2025-08-23 16:34:28,789 INFO sqlalchemy.engine.Engine COMMIT
+2025-08-23 16:34:28,806 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 16:34:28,806 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+FROM user 
+WHERE user.user_id = ?
+2025-08-23 16:34:28,806 INFO sqlalchemy.engine.Engine [cached since 2.145s ago] (7010343980,)
+2025-08-23 16:34:28,807 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
+FROM tariffs 
+WHERE tariffs.id = ?
+2025-08-23 16:34:28,807 INFO sqlalchemy.engine.Engine [cached since 2.111s ago] (1,)
+subscription
+2025-08-23 16:34:28,807 INFO sqlalchemy.engine.Engine SELECT servers.id, servers.name, servers.server_url, servers.login, servers.password, servers.indoub_id, servers.created, servers.updated 
+FROM servers 
+WHERE servers.id = ?
+2025-08-23 16:34:28,808 INFO sqlalchemy.engine.Engine [cached since 2.11s ago] ('subscription',)
+2025-08-23 16:34:28,808 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     10.0.0.1:57346 - "POST /bot_webhook HTTP/1.1" 500 Internal Server Error
