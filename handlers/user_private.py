@@ -374,7 +374,7 @@ async def install(callback):
 @user_private_router.callback_query(F.data.startswith('chooseserver_'))
 async def create_subscription(callback: types.CallbackQuery, session, bot):
     payment = await orm_get_payment(session, callback.data.split('_')[-1])
-    await orm_change_user_server(session, payment.user_id, callback.data.split('_')[1])
+    await orm_change_user_server(session, payment.user_id, int(callback.data.split('_')[1]))
     if payment.paid:
         print('Ошибка: оплата уже совершена')
         return
