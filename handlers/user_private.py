@@ -34,10 +34,16 @@ user_private_router.message.filter(BlockedUsersFilter())
 
 
 @user_private_router.message(Command('start'))
-async def start(message):
+async def start(message, session):
+    args = message.text.split()[1:]
+    if args:
+        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=args)
+    else:
+        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=None)
+
     await message.answer_photo(
         photo=types.FSInputFile("img/banner.png"),
-        capture='<b>SkynetVPN — сервис защищённых подключений.</b>\n\n<b>Используя бота, вы подтверждаете, что ознакомились и принимаете условия <a href="https://skynetvpn.ru/terms-of-service.html">Публичной оферты</a> и <a href="https://skynetvpn.ru/terms-of-service.html">Политики обработки персональных данных</a>.</b>\n\nСервис не предназначен для обхода ограничений доступа к информации. Получение/распространение запрещённой информации в РФ запрещено.\n\nМы предоставляем техническую услугу по организации шифрованного соединения и не формируем/не контролируем содержимое трафика.\n\nПользователь обязуется соблюдать законодательство РФ (в т.ч. 149-ФЗ, 114-ФЗ, 436-ФЗ, 187-ФЗ).',
+        caption='<b>SkynetVPN — сервис защищённых подключений.</b>\n\n<b>Используя бота, вы подтверждаете, что ознакомились и принимаете условия <a href="https://skynetvpn.ru/terms-of-service.html">Публичной оферты</a> и <a href="https://skynetvpn.ru/terms-of-service.html">Политики обработки персональных данных</a>.</b>\n\nСервис не предназначен для обхода ограничений доступа к информации. Получение/распространение запрещённой информации в РФ запрещено.\n\nМы предоставляем техническую услугу по организации шифрованного соединения и не формируем/не контролируем содержимое трафика.\n\nПользователь обязуется соблюдать законодательство РФ (в т.ч. 149-ФЗ, 114-ФЗ, 436-ФЗ, 187-ФЗ).',
         reply_markup=get_inlineMix_btns(
             btns={
                 "Оферта": "https://skynetvpn.ru/terms-of-service.html",
@@ -50,12 +56,6 @@ async def start(message):
 
 @user_private_router.message(Command("main_menu"))
 async def start(message: types.Message, session):
-    args = message.text.split()[1:]
-    if args:
-        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=args)
-    else:
-        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=None)
-
     btns = {
                 "📡 Подключить": "choosesubscribe",
                 "🔍 Проверить подписку": "check_subscription",
@@ -131,11 +131,11 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
     servers = await orm_get_servers(session)
     countries = ''
 
-    for i in len(servers):
-        if i == len(servers):
+    for i in range(0, len(servers)):
+        if i == len(servers)-1:
             countries += f'└ {servers[i].name}'
         else:
-            countries += f'├ {servers[i].name}'
+            countries += f'├ {servers[i].name}\n'
 
         
     for i in tariffs:
@@ -147,7 +147,7 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
     btns["⬅ Назад"] = "back_menu"
     
     try:
-        await callback.message.edit_caption(caption=f"<b>⚡️ Вы покупаете премиум подписку на Skynet VPN</b>\n\n● Возможность подключить любые устройства\n● До 4 устройств одновременно \n● Без лимитов и ограничений по скорости\n\nСписок поддерживаемых устройств:\n\nAndroid (Android 7.0 или новее.) | Windows (Windows 8.1 или новее.) | iOS, iPadOS (iOS 16.0 или новее.) | macOS процессоры M  (macOS 13.0 или новее) | macOS  c процессором Intel (macOS 11.0 или новее.) | Android TV ( Android 7.0 или новее.) | Linux\n\n🌍 <b>Доступные страны:</b>\n{countries}", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
+        await callback.message.edit_caption(caption=f"<b>⚡️ Вы покупаете премиум подписку на Skynet VPN</b>\n\n● Возможность подключить любые устройства\n● До 4 устройств одновременно \n● Без лимитов и ограничений по скорости\n\n<b>Список поддерживаемых устройств:</b>\n\n<b>Android</b> (Android 7.0 или новее.) | <b>Windows</b> (Windows 8.1 или новее.) | <b>iOS, iPadOS</b> (iOS 16.0 или новее.) | <b>macOS</b> процессоры M  (macOS 13.0 или новее) | <b>macOS</b>  c процессором Intel (macOS 11.0 или новее.) | <b>Android TV</b> ( Android 7.0 или новее.) | <b>Linux</b>\n\n🌍 <b>Доступные страны:</b>\n{countries}", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             await callback.answer()

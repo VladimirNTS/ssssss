@@ -66,4 +66,6 @@ class Server(Base):
     server_url: Mapped[str] = mapped_column(String(100))
     login: Mapped[str] = mapped_column(String(50))
     password: Mapped[str] = mapped_column(String(50))
+    indoub_id: Mapped[int] = mapped_column(Integer())
+
 

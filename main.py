@@ -85,8 +85,16 @@ async def subscribe(
     signature_value = hashlib.md5(base_string.encode("utf-8")).hexdigest()
 
     await orm_new_payment(async_session, tariff_id=tariff.id, user_id=user_id)
+    
+    time_text = ''
+    if tariff.sub_time == 1:
+        time_text = 'месяц'
+    elif tariff.sub_time < 5:
+        time_text = 'месяца'
+    else:
+        time_text = 'месяцев'
 
-    return templates.TemplateResponse("/pay_new_subscribe.html", {"request": request, "price": tariff.price, "time": tariff.sub_time, "shop_id": os.getenv("SHOP_ID"), "signature_value": signature_value, "invoice_id": invoice_id})
+    return templates.TemplateResponse("/pay_new_subscribe.html", {"request": request, "price": tariff.price, "time": tariff.sub_time, "time_text": time_text,"shop_id": os.getenv("SHOP_ID"), "signature_value": signature_value, "invoice_id": invoice_id})
 
 
 @app.get("/new_order", response_class=HTMLResponse)

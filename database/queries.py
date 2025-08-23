@@ -242,8 +242,8 @@ async def orm_add_server(session: AsyncSession, data):
         name=data['name'],
         server_url=data['url'],
         login=data['login'],
-        password=data['password']
-
+        password=data['password'],
+        indoub_id=data['indoub_id']
     )
     session.add(obj)
     await session.commit()

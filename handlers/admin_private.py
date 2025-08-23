@@ -555,6 +555,7 @@ class FSMAddServer(StatesGroup):
     url = State()
     login = State()
     password = State()
+    indoub_id = State()
 
 # Undo text for add tariff FSM
 FSMAddTariff_undo_text = {
@@ -599,10 +600,20 @@ async def add_product_description(message, state: FSMContext):
 @admin_private_router.message(FSMAddServer.url)
 async def add_product_description(message: types.Message, state: FSMContext):
     await state.update_data(url=message.text)
-    await message.answer('Введите логин админ панели сервера:')
+    await message.answer('Введите ID индауба:')
     
-    await state.set_state(FSMAddServer.login)
+    await state.set_state(FSMAddServer.indoub_id)
     
+
+@admin_private_router.message(FSMAddServer.indoub_id)
+async def add_product_description(message: types.Message, state: FSMContext):
+    try:
+        await state.update_data(indoub_id=int(message.text))
+        await message.answer('Введите логин админ панели сервера:')
+    
+        await state.set_state(FSMAddServer.login)
+    except:
+        await message.answer('Неверный формат, введите id индауба:')
 
 
 @admin_private_router.message(FSMAddServer.login)
@@ -637,6 +648,7 @@ class FSMEditServer(StatesGroup):
     url = State()
     login = State()
     password = State()
+    indoub_id = State()
 
 # Undo text for add tariff FSM
 FSMAddTariff_undo_text = {
@@ -682,10 +694,20 @@ async def add_product_description(message, state: FSMContext):
 @admin_private_router.message(FSMEditServer.url)
 async def add_product_description(message: types.Message, state: FSMContext):
     await state.update_data(url=message.text)
-    await message.answer('Введите логин админ панели сервера:')
+    await message.answer('Введите id индауба:')
     
-    await state.set_state(FSMEditServer.login)
+    await state.set_state(FSMEditServer.indoub_id)
     
+
+@admin_private_router.message(FSMEditServer.indoub_id)
+async def add_product_description(message: types.Message, state: FSMContext):
+    try:
+        await state.update_data(indoub_id=int(message.text))
+        await message.answer('Введите логин админ панели сервера:')
+    
+        await state.set_state(FSMEditServer.login)
+    except:
+        await message.answer('Неверный формат, введите id индауба:')
 
 
 @admin_private_router.message(FSMEditServer.login)
