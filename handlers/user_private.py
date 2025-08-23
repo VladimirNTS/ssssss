@@ -370,7 +370,7 @@ async def install(callback):
 
 # Создание подписки для пользователя после оплаты
 @user_private_router.callback_query(F.data.startswith('chooseserver_'))
-async def create_subscription(callback: types.CallbackQuery, session):
+async def create_subscription(callback: types.CallbackQuery, session, bot):
     payment = await orm_get_payment(session, callback.data.split('_')[-1])
     await orm_change_user_server(session, payment.user_id, callback.data.split('_')[1])
     if payment.paid:
@@ -400,12 +400,12 @@ async def create_subscription(callback: types.CallbackQuery, session):
         date = new_vpn_user['expire_time'] / 1000 
         date = datetime.fromtimestamp(date)
 
-        await orm_end_payment(session, payment.id)
+        # await orm_end_payment(session, payment.id)
         await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
         url = f'vless://{new_vpn_user["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(new_vpn_user["email"])}'
         await bot.send_message(
             user.user_id, 
-            f"<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href=''https://saturn-online.su/setup-guide/windows/v2raytun>инструкцией</a>", 
+            f"<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href='https://saturn-online.su/setup-guide/windows/v2raytun'>инструкцией</a>", 
             reply_markup=get_callback_btns(
                 btns={ 
                     "Дополнительная настройка": "https://saturn-online.su/setup-guide/"

@@ -55,7 +55,7 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
         ) as response:
             text = await response.text()
             
-            print(text)
+            print(response)
 
             return {
                 "response": text,

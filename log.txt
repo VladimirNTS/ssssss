@@ -1,89 +1,78 @@
-2025-08-23 15:02:00,742 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-2025-08-23 15:02:00,743 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("user")
-2025-08-23 15:02:00,743 INFO sqlalchemy.engine.Engine [raw sql] ()
-2025-08-23 15:02:00,743 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tariffs")
-2025-08-23 15:02:00,743 INFO sqlalchemy.engine.Engine [raw sql] ()
-2025-08-23 15:02:00,743 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("faq")
-2025-08-23 15:02:00,743 INFO sqlalchemy.engine.Engine [raw sql] ()
-2025-08-23 15:02:00,744 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("payments")
-2025-08-23 15:02:00,744 INFO sqlalchemy.engine.Engine [raw sql] ()
-2025-08-23 15:02:00,744 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("servers")
-2025-08-23 15:02:00,744 INFO sqlalchemy.engine.Engine [raw sql] ()
-2025-08-23 15:02:00,744 INFO sqlalchemy.engine.Engine COMMIT
-2025-08-23 15:02:06,649 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-2025-08-23 15:02:06,653 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
-FROM tariffs 
-WHERE tariffs.id = ?
-2025-08-23 15:02:06,653 INFO sqlalchemy.engine.Engine [generated in 0.00014s] (1,)
-2025-08-23 15:02:06,655 INFO sqlalchemy.engine.Engine SELECT payments.id, payments.user_id, payments.tariff_id, payments.paid, payments.created, payments.updated 
-FROM payments ORDER BY payments.id DESC
- LIMIT ? OFFSET ?
-2025-08-23 15:02:06,655 INFO sqlalchemy.engine.Engine [generated in 0.00013s] (1, 0)
-2025-08-23 15:02:06,657 INFO sqlalchemy.engine.Engine INSERT INTO payments (user_id, tariff_id, paid, created, updated) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id, created, updated
-2025-08-23 15:02:06,657 INFO sqlalchemy.engine.Engine [generated in 0.00015s] (1, 1, 0)
-2025-08-23 15:02:06,658 INFO sqlalchemy.engine.Engine COMMIT
-INFO:     10.0.0.1:44140 - "GET /new_subscribe?user_id=1&sub_id=1 HTTP/1.1" 200 OK
-2025-08-23 15:02:21,598 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-2025-08-23 15:02:21,599 INFO sqlalchemy.engine.Engine SELECT payments.id, payments.user_id, payments.tariff_id, payments.paid, payments.created, payments.updated 
+2025-08-23 15:09:14,538 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 15:09:14,539 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("user")
+2025-08-23 15:09:14,539 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 15:09:14,540 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tariffs")
+2025-08-23 15:09:14,540 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 15:09:14,540 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("faq")
+2025-08-23 15:09:14,541 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 15:09:14,541 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("payments")
+2025-08-23 15:09:14,541 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 15:09:14,541 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("servers")
+2025-08-23 15:09:14,541 INFO sqlalchemy.engine.Engine [raw sql] ()
+2025-08-23 15:09:14,542 INFO sqlalchemy.engine.Engine COMMIT
+2025-08-23 15:09:17,691 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 15:09:17,695 INFO sqlalchemy.engine.Engine SELECT payments.id, payments.user_id, payments.tariff_id, payments.paid, payments.created, payments.updated 
 FROM payments 
 WHERE payments.id = ?
-2025-08-23 15:02:21,599 INFO sqlalchemy.engine.Engine [generated in 0.00024s] (9,)
-2025-08-23 15:02:21,601 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+2025-08-23 15:09:17,695 INFO sqlalchemy.engine.Engine [generated in 0.00018s] ('10',)
+2025-08-23 15:09:17,697 INFO sqlalchemy.engine.Engine UPDATE user SET server=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
+2025-08-23 15:09:17,697 INFO sqlalchemy.engine.Engine [generated in 0.00013s] ('2', 1)
+2025-08-23 15:09:17,697 INFO sqlalchemy.engine.Engine COMMIT
+2025-08-23 15:09:17,719 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 15:09:17,720 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
 FROM user 
 WHERE user.id = ?
-2025-08-23 15:02:21,601 INFO sqlalchemy.engine.Engine [generated in 0.00015s] (1,)
-2025-08-23 15:02:21,602 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
+2025-08-23 15:09:17,720 INFO sqlalchemy.engine.Engine [generated in 0.00012s] (1,)
+2025-08-23 15:09:17,722 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
 FROM tariffs 
 WHERE tariffs.id = ?
-2025-08-23 15:02:21,602 INFO sqlalchemy.engine.Engine [cached since 14.95s ago] (1,)
-2025-08-23 15:02:21,603 INFO sqlalchemy.engine.Engine SELECT servers.id, servers.name, servers.server_url, servers.login, servers.password, servers.indoub_id, servers.created, servers.updated 
-FROM servers
-2025-08-23 15:02:21,603 INFO sqlalchemy.engine.Engine [generated in 0.00011s] ()
-INFO:     10.0.0.1:41666 - "POST /get_payment/ HTTP/1.1" 200 OK
-2025-08-23 15:02:30,621 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-2025-08-23 15:02:30,622 INFO sqlalchemy.engine.Engine SELECT payments.id, payments.user_id, payments.tariff_id, payments.paid, payments.created, payments.updated 
-FROM payments 
-WHERE payments.id = ?
-2025-08-23 15:02:30,622 INFO sqlalchemy.engine.Engine [generated in 0.00017s] ('9',)
-2025-08-23 15:02:30,625 INFO sqlalchemy.engine.Engine UPDATE user SET server=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
-2025-08-23 15:02:30,625 INFO sqlalchemy.engine.Engine [generated in 0.00016s] ('3', 1)
-2025-08-23 15:02:30,625 INFO sqlalchemy.engine.Engine COMMIT
-2025-08-23 15:02:30,651 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-2025-08-23 15:02:30,651 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
-FROM user 
-WHERE user.id = ?
-2025-08-23 15:02:30,651 INFO sqlalchemy.engine.Engine [cached since 9.05s ago] (1,)
-2025-08-23 15:02:30,652 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
-FROM tariffs 
-WHERE tariffs.id = ?
-2025-08-23 15:02:30,652 INFO sqlalchemy.engine.Engine [cached since 24s ago] (1,)
-2025-08-23 15:02:30,653 INFO sqlalchemy.engine.Engine SELECT servers.id, servers.name, servers.server_url, servers.login, servers.password, servers.indoub_id, servers.created, servers.updated 
+2025-08-23 15:09:17,722 INFO sqlalchemy.engine.Engine [generated in 0.00012s] (1,)
+2025-08-23 15:09:17,724 INFO sqlalchemy.engine.Engine SELECT servers.id, servers.name, servers.server_url, servers.login, servers.password, servers.indoub_id, servers.created, servers.updated 
 FROM servers 
 WHERE servers.id = ?
-2025-08-23 15:02:30,653 INFO sqlalchemy.engine.Engine [generated in 0.00014s] (3,)
+2025-08-23 15:09:17,724 INFO sqlalchemy.engine.Engine [generated in 0.00018s] (2,)
 1
 {'username': 'DtuPkgCqwV', 'password': 'm1Y35enELz', 'twoFactorCode': ''}
 <ClientResponse(https://super.skynetvpn.ru:8443/paneladmin//login) [200 OK]>
-<CIMultiDictProxy('Content-Encoding': 'gzip', 'Content-Type': 'text/plain', 'Vary': 'Accept-Encoding', 'Date': 'Sat, 23 Aug 2025 15:02:31 GMT', 'Content-Length': '0')>
+<CIMultiDictProxy('Content-Encoding': 'gzip', 'Content-Type': 'text/plain', 'Vary': 'Accept-Encoding', 'Date': 'Sat, 23 Aug 2025 15:09:18 GMT', 'Content-Length': '0')>
 
 
 
 
-2025-08-23 15:02:31,450 INFO sqlalchemy.engine.Engine UPDATE payments SET paid=?, updated=CURRENT_TIMESTAMP WHERE payments.id = ?
-2025-08-23 15:02:31,450 INFO sqlalchemy.engine.Engine [generated in 0.00017s] (1, 9)
-2025-08-23 15:02:31,451 INFO sqlalchemy.engine.Engine COMMIT
-2025-08-23 15:02:31,477 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-2025-08-23 15:02:31,478 INFO sqlalchemy.engine.Engine UPDATE user SET tun_id=?, status=?, sub_end=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
-2025-08-23 15:02:31,478 INFO sqlalchemy.engine.Engine [generated in 0.00014s] ('07d5004e-1185-4b36-bf8a-f9b1178f0065', 1, '2025-09-23 15:02:30.654248', 1)
-2025-08-23 15:02:31,479 INFO sqlalchemy.engine.Engine COMMIT
-INFO:     10.0.0.1:36070 - "POST /bot_webhook HTTP/1.1" 500 Internal Server Error
-2025-08-23 15:02:31,535 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-2025-08-23 15:02:31,536 INFO sqlalchemy.engine.Engine SELECT payments.id, payments.user_id, payments.tariff_id, payments.paid, payments.created, payments.updated 
+2025-08-23 15:09:18,534 INFO sqlalchemy.engine.Engine UPDATE user SET tun_id=?, status=?, sub_end=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
+2025-08-23 15:09:18,534 INFO sqlalchemy.engine.Engine [generated in 0.00020s] ('e72f055a-1730-4b1c-ba68-c1ddf5c460fa', 1, '2025-09-23 15:09:17.725131', 1)
+2025-08-23 15:09:18,535 INFO sqlalchemy.engine.Engine COMMIT
+INFO:     10.0.0.1:60556 - "POST /bot_webhook HTTP/1.1" 200 OK
+2025-08-23 15:11:51,287 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 15:11:51,287 INFO sqlalchemy.engine.Engine SELECT payments.id, payments.user_id, payments.tariff_id, payments.paid, payments.created, payments.updated 
 FROM payments 
 WHERE payments.id = ?
-2025-08-23 15:02:31,536 INFO sqlalchemy.engine.Engine [cached since 0.9134s ago] ('9',)
-2025-08-23 15:02:31,537 INFO sqlalchemy.engine.Engine UPDATE user SET server=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
-2025-08-23 15:02:31,537 INFO sqlalchemy.engine.Engine [cached since 0.9122s ago] ('3', 1)
-2025-08-23 15:02:31,537 INFO sqlalchemy.engine.Engine COMMIT
-Ошибка: оплата уже совершена
-INFO:     10.0.0.1:36078 - "POST /bot_webhook HTTP/1.1" 200 OK
+2025-08-23 15:11:51,287 INFO sqlalchemy.engine.Engine [cached since 153.6s ago] ('10',)
+2025-08-23 15:11:51,288 INFO sqlalchemy.engine.Engine UPDATE user SET server=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
+2025-08-23 15:11:51,288 INFO sqlalchemy.engine.Engine [cached since 153.6s ago] ('1', 1)
+2025-08-23 15:11:51,289 INFO sqlalchemy.engine.Engine COMMIT
+2025-08-23 15:11:51,307 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2025-08-23 15:11:51,307 INFO sqlalchemy.engine.Engine SELECT user.id, user.user_id, user.name, user.tun_id, user.sub_id, user.status, user.sub_end, user.invited_by, user.blocked, user.server, user.created, user.updated 
+FROM user 
+WHERE user.id = ?
+2025-08-23 15:11:51,307 INFO sqlalchemy.engine.Engine [cached since 153.6s ago] (1,)
+2025-08-23 15:11:51,308 INFO sqlalchemy.engine.Engine SELECT tariffs.id, tariffs.sub_time, tariffs.price, tariffs.devices, tariffs.recuring, tariffs.created, tariffs.updated 
+FROM tariffs 
+WHERE tariffs.id = ?
+2025-08-23 15:11:51,308 INFO sqlalchemy.engine.Engine [cached since 153.6s ago] (1,)
+2025-08-23 15:11:51,309 INFO sqlalchemy.engine.Engine SELECT servers.id, servers.name, servers.server_url, servers.login, servers.password, servers.indoub_id, servers.created, servers.updated 
+FROM servers 
+WHERE servers.id = ?
+2025-08-23 15:11:51,309 INFO sqlalchemy.engine.Engine [cached since 153.6s ago] (1,)
+1
+{'username': 'gWD5hjH3X6', 'password': 'fLIxXyT1Hj', 'twoFactorCode': ''}
+<ClientResponse(http://46.246.98.92:18854/2KqWZLNEoQmPRzdqeM//login) [200 OK]>
+<CIMultiDictProxy('Content-Encoding': 'gzip', 'Content-Type': 'text/plain', 'Vary': 'Accept-Encoding', 'Date': 'Sat, 23 Aug 2025 15:11:51 GMT', 'Content-Length': '0')>
+
+
+
+
+2025-08-23 15:11:51,349 INFO sqlalchemy.engine.Engine UPDATE user SET tun_id=?, status=?, sub_end=?, updated=CURRENT_TIMESTAMP WHERE user.id = ?
+2025-08-23 15:11:51,349 INFO sqlalchemy.engine.Engine [cached since 152.8s ago] ('dcf9594d-90d9-4702-8a2c-bd636748b557', 1, '2025-09-23 15:11:51.309603', 1)
+2025-08-23 15:11:51,349 INFO sqlalchemy.engine.Engine COMMIT
+INFO:     10.0.0.1:50976 - "POST /bot_webhook HTTP/1.1" 200 OK
