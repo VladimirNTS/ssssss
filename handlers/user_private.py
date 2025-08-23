@@ -399,7 +399,7 @@ async def create_subscription(callback: types.CallbackQuery, session):
         date = datetime.fromtimestamp(date)
 
         await orm_end_payment(session, payment.id)
-        await orm_change_user_status(session, user_id=user_id, new_status=tariff.id, tun_id=str(sub_data['id']), sub_end=date)
+        await orm_change_user_status(session, user_id=user_id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
         url = f'vless://{sub_data["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(sub_data["email"])}'
         await bot.send_message(
             user_id, 
