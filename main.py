@@ -32,10 +32,10 @@ from database.queries import (
     orm_new_payment,
     orm_get_payment,
     orm_get_server,
+    orm_get_servers,
 )
 from skynetapi.skynetapi import auth, add_customer, edit_customer_date
-
-
+from kbds.inline import get_inlineMix_btns
 
 class PayResponce(BaseModel):
     OutSum: float
@@ -130,7 +130,7 @@ async def choose_server(*, body: PayResponce):
     for i in servers:
         btns[i.name] = f'chooseserver_{i.id}_{body.InvId}'
     
-    await bot.sand_message(
+    await bot.send_message(
         user.user_id,
         text="<b>Вы купили подписку на Skynet VPN\n\nВыберите сервер:</b>",
         reply_markup=get_inlineMix_btns(
