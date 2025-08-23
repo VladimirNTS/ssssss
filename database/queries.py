@@ -212,7 +212,7 @@ async def orm_edit_faq(session: AsyncSession, id: int, fields: dict):
 
 
 async def orm_end_payment(session: AsyncSession, id: int):
-    query = update(FAQ).where(FAQ.id == id).values(paid = True)
+    query = update(Payments).where(Payments.id == id).values(paid = True)
     await session.execute(query)
     await session.commit()
 

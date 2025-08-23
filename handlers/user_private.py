@@ -26,7 +26,8 @@ from database.queries import (
     orm_get_server,
     orm_add_server,
     orm_edit_server,
-    orm_end_payment
+    orm_end_payment,
+    orm_get_payment
 )
 from skynetapi.skynetapi import auth, add_customer, edit_customer_date
 
@@ -370,12 +371,14 @@ async def install(callback):
 # Создание подписки для пользователя после оплаты
 @user_private_router.callback_query(F.data.startswith('chooseserver_'))
 async def create_subscription(callback: types.CallbackQuery, session):
-    payment = await orm_get_payment(async_session, callback.data.split('_')[-1])
+    payment = await orm_get_payment(session, callback.data.split('_')[-1])
+    await orm_change_user_server(session, payment.user_id, callback.data.split('_')[1])
+
     if payment.paid == True:
         return
-    user = await orm_get_user_by_id(async_session, payment.user_id)
-    tariff = await orm_get_tariff(async_session, payment.tariff_id)
-    server = await orm_get_server(async_session, user.server)
+    user = await orm_get_user_by_id(session, payment.user_id)
+    tariff = await orm_get_tariff(session, payment.tariff_id)
+    server = await orm_get_server(session, user.server)
     
     if user.status == 0:
         current_date = datetime.now()
@@ -384,8 +387,8 @@ async def create_subscription(callback: types.CallbackQuery, session):
         new_vpn_user = await add_customer(
             server.server_url,
             server.indoub_id,
-            auth(server.server_url, server.login, server.password), 
-            server.name + '_' + user.id,
+            await auth(server.server_url, server.login, server.password), 
+            server.name + '_' + str(user.id),
             (new_date.timestamp() * 1000),
             tariff.devices,
             user.user_id,
