@@ -31,9 +31,11 @@ async def auth(server, login, password):
 
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(server + '/login', data=data) as response:
+            print(response)
             text = await response.text()
             print(text)
             cookies = response.cookies
+            print(cookies)
             return cookies
 
 

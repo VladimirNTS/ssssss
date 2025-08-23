@@ -373,21 +373,23 @@ async def install(callback):
 async def create_subscription(callback: types.CallbackQuery, session):
     payment = await orm_get_payment(session, callback.data.split('_')[-1])
     await orm_change_user_server(session, payment.user_id, callback.data.split('_')[1])
-
-    if payment.paid == True:
+    if payment.paid:
+        print('Ошибка: оплата уже совершена')
         return
     user = await orm_get_user_by_id(session, payment.user_id)
     tariff = await orm_get_tariff(session, payment.tariff_id)
     server = await orm_get_server(session, user.server)
-    
-    if user.status == 0:
+    print(user.status) 
+    if 1:
         current_date = datetime.now()
         new_date = current_date + relativedelta(months=tariff.sub_time)
 
+        cookies = await auth(server.server_url, server.login, server.password)
+        
         new_vpn_user = await add_customer(
             server.server_url,
             server.indoub_id,
-            await auth(server.server_url, server.login, server.password), 
+            cookies, 
             server.name + '_' + str(user.id),
             (new_date.timestamp() * 1000),
             tariff.devices,
@@ -399,10 +401,10 @@ async def create_subscription(callback: types.CallbackQuery, session):
         date = datetime.fromtimestamp(date)
 
         await orm_end_payment(session, payment.id)
-        await orm_change_user_status(session, user_id=user_id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
-        url = f'vless://{sub_data["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(sub_data["email"])}'
+        await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
+        url = f'vless://{new_vpn_user["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(new_vpn_user["email"])}'
         await bot.send_message(
-            user_id, 
+            user.user_id, 
             f"<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href=''https://saturn-online.su/setup-guide/windows/v2raytun>инструкцией</a>", 
             reply_markup=get_callback_btns(
                 btns={ 

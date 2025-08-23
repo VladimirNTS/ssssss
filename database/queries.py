@@ -264,7 +264,7 @@ async def orm_delete_server(session, id):
 async def orm_edit_server(session, id: int, fields: dict):
     if not fields:
         return
-    query = update(Server).where(FAQ.id == id).values(**fields)
+    query = update(Server).where(Server.id == id).values(**fields)
     await session.execute(query)
     await session.commit()
 
@@ -276,7 +276,7 @@ async def orm_get_servers(session):
 
 
 async def orm_get_server(session, id):
-    query = select(Server).where(Payments.id == id)
+    query = select(Server).where(Server.id == id)
     result = await session.execute(query)
     return result.scalar()
 
