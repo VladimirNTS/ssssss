@@ -211,6 +211,12 @@ async def orm_edit_faq(session: AsyncSession, id: int, fields: dict):
     await session.commit()
 
 
+async def orm_end_payment(session: AsyncSession, id: int):
+    query = update(FAQ).where(FAQ.id == id).values(paid = True)
+    await session.execute(query)
+    await session.commit()
+
+
 async def orm_new_payment(session: AsyncSession, user_id: int, tariff_id: int):
     '''Создает новую запись о платеже в таблицу'''
     obj = Payments(

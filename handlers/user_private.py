@@ -25,7 +25,8 @@ from database.queries import (
     orm_get_servers,
     orm_get_server,
     orm_add_server,
-    orm_edit_server
+    orm_edit_server,
+    orm_end_payment
 )
 from skynetapi.skynetapi import auth, add_customer, edit_customer_date
 
@@ -368,7 +369,7 @@ async def install(callback):
 
 # Создание подписки для пользователя после оплаты
 @user_private_router.callback_query(F.data.startswith('chooseserver_'))
-async def create_subscription(callback, session):
+async def create_subscription(callback: types.CallbackQuery, session):
     payment = await orm_get_payment(async_session, callback.data.split('_')[-1])
     if payment.paid == True:
         return
@@ -382,19 +383,31 @@ async def create_subscription(callback, session):
 
         new_vpn_user = await add_customer(
             server.server_url,
+            server.indoub_id,
             auth(server.server_url, server.login, server.password), 
-            user.name,
+            server.name + '_' + user.id,
             (new_date.timestamp() * 1000),
-            tariff.devices
+            tariff.devices,
+            user.user_id,
+            callback.from_user.id or user.name
         )
 
         date = new_vpn_user['expire_time'] / 1000 
         date = datetime.fromtimestamp(date)
 
+        await orm_end_payment(session, payment.id)
         await orm_change_user_status(session, user_id=user_id, new_status=tariff.id, tun_id=str(sub_data['id']), sub_end=date)
         url = f'vless://{sub_data["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(sub_data["email"])}'
-        await bot.send_message(user_id, f"<b>Подписка оформлена!</b>\nВаша подписка на активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!", reply_markup=get_callback_btns(btns={ "⬅ Назад": "back_menu"}))
-
+        await bot.send_message(
+            user_id, 
+            f"<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href=''https://saturn-online.su/setup-guide/windows/v2raytun>инструкцией</a>", 
+            reply_markup=get_callback_btns(
+                btns={ 
+                    "Дополнительная настройка": "https://saturn-online.su/setup-guide/"
+                }
+            )
+        )
+        callback.message.delete()
 
 async def release():
     async_session = await get_session(session_pool=session)
