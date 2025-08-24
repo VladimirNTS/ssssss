@@ -40,12 +40,12 @@ async def auth(server, login, password):
 
 
 async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip, chat_id, username):
-    id = uuid.uuid4()
+    uu_id = uuid.uuid4()
     sub_id = str(uuid.uuid4()).split('-')[0]
 
     data = {
         'id': str(indoub_id),
-        'settings': '{"clients": [{\n  "id": "%s",\n  "flow": "",\n  "email": "%s",\n  "limitIp": %s,\n  "totalGB": 0,\n  "expiryTime": %s,\n  "enable": true,\n  "tgId": "%s",\n  "subId": "%s",\n  "comment": "%s",\n  "reset": 0\n}]}' % (id, email, limit_ip, expire_time, chat_id, sub_id, username)
+        'settings': '{"clients": [{\n  "id": "%s",\n  "flow": "xtls-rprx-vision",\n  "email": "%s",\n  "limitIp": %s,\n  "totalGB": 0,\n  "expiryTime": %s,\n  "enable": true,\n  "tgId": %s,\n  "subId": "%s",\n  "comment": "%s",\n  "reset": 0\n}]}' % (uu_id, email, limit_ip, expire_time, chat_id, sub_id, username)
     }
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
@@ -61,7 +61,7 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
                 "response": text,
                 "email": email,
                 "expire_time": expire_time,
-                "id": id,
+                "id": uu_id,
                 "sub_id": sub_id
             }
 

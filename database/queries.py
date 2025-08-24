@@ -88,7 +88,7 @@ async def orm_change_user_status(session: AsyncSession, user_id, new_status, sub
 async def orm_change_user_server(session: AsyncSession, user_id, server):
     
     query = update(User).where(User.id == user_id).values(
-            server=server
+            server=int(server)
         )
     await session.execute(query)
     await session.commit()

@@ -149,7 +149,7 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
     btns["⬅ Назад"] = "back_menu"
     
     try:
-        await callback.message.edit_caption(caption=f"<b>⚡️ Вы покупаете премиум подписку на Skynet VPN</b>\n\n● Возможность подключить любые устройства\n● До 4 устройств одновременно \n● Без лимитов и ограничений по скорости\n\n<b>Список поддерживаемых устройств:</b>\n\n<b>Android</b> (Android 7.0 или новее.) | <b>Windows</b> (Windows 8.1 или новее.) | <b>iOS, iPadOS</b> (iOS 16.0 или новее.) | <b>macOS</b> процессоры M  (macOS 13.0 или новее) | <b>macOS</b>  c процессором Intel (macOS 11.0 или новее.) | <b>Android TV</b> ( Android 7.0 или новее.) | <b>Linux</b>\n\n🌍 <b>Доступные страны:</b>\n{countries}", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
+        await callback.message.edit_caption(caption=f"<b>⚡️ Вы покупаете премиум подписку на Skynet VPN</b>\n\n● Возможность подключить любые устройства\n● До 4 устройств одновременно \n● Без лимитов и ограничений по скорости\n\n<b>Список поддерживаемых устройств:</b>\n\n<b>Android</b> (Android 7.0 или новее.) | <b>Windows</b> (Windows 8.1 или новее.) | <b>iOS, iPadOS</b> (iOS 16.0 или новее.) | <b>macOS</b> процессоры M  (macOS 13.0 или новее) | <b>macOS</b>  c процессором Intel (macOS 11.0 или новее.) | <b>Android TV</b> ( Android 7.0 или новее.) | <b>Linux</b>\n\n🌍 <b>Доступные страны:</b>\n👑 - без рекламы на YouTube\n🎧 - YouTube можно сворачивать\n\n{countries}", reply_markup=get_inlineMix_btns(btns=btns, sizes=(1,)))
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             await callback.answer()
@@ -163,7 +163,7 @@ async def show_chousen(callback, session):
         tariff = await orm_get_tariff(session, callback.data.split('_')[-1].split('|')[0])
         
         await callback.message.edit_caption(
-            caption=f"Вы выбрали подписку: <b>{tariff.sub_time} мес.</b>\nСтоимость: <b>{tariff.price} руб.</b>\nСпособ оплаты: <b>Банковская карта</b>\nВремя на оплату: <b>10 минут</b>\n\nПосле оплаты <b>конфигурация будет отправлена в течение минуты.</b>",
+            caption=f"Вы выбрали подписку: <b>{tariff.sub_time} мес.</b>\nСтоимость: <b>{tariff.price} руб.</b>\nСпособ оплаты: <b>Банковская карта</b>\nВремя на оплату: <b>10 минут</b>\n\nПосле оплаты <b>SkynetVPN будет отправлена в течение минуты.</b>",
             reply_markup=get_inlineMix_btns(
                 btns={
                     'Оплатить': f"{os.getenv('PAY_PAGE_URL')}/new_subscribe?user_id={callback.data.split('_')[-1].split('|')[1]}&sub_id={tariff.id}", 
@@ -264,11 +264,6 @@ async def other_products(callback: types.CallbackQuery, session):
 async def check_subscription(callback: types.CallbackQuery, session):
     user_id = callback.from_user.id
     
-    if callback.data.split('_')[-1]:
-        user = await orm_get_user(session, user_id)
-
-        await orm_change_user_server(session, user.id, callback.data.split('_')[-1])
-    
     user = await orm_get_user(session, user_id)
     tariff = await orm_get_tariff(session, user.status)
     with open('log.txt', 'w') as f:
@@ -280,7 +275,7 @@ async def check_subscription(callback: types.CallbackQuery, session):
     if user.status > 0:
         try:
             await callback.message.edit_caption(
-                caption=f"Текущий тариф: {tariff.sub_time} месяцев, {tariff.price} ₽ {'(Подписка)' if tariff.recuring == True else '(Единоразовая покупка)'}\Сервер: {server.name}\nВаша подписка действует до {user.sub_end.date()}. \n\nВаша ссылка для подключения: <code>{url}</code>",
+                caption=f"<b>Текущий тариф</b>: {tariff.sub_time} мес. {tariff.price} ₽ {'(Подписка)' if tariff.recuring == True else '(Единоразовая покупка)'}\n<b>Сервер</b>: {server.name}\n\nВаша подписка действует до <b>{user.sub_end.date()}</b>. \n\nВаша ссылка для подключения: <code>{url}</code>",
                 reply_markup=get_inlineMix_btns(btns={"Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', 'Сменить сервер': 'changeserver','Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
             )
         except TelegramBadRequest as e:
@@ -405,10 +400,12 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
         # await orm_end_payment(session, payment.id)
         await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
         url = f'vless://{new_vpn_user["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(new_vpn_user["email"])}'
+        with open('log.txt', 'w') as f:
+            f.write(url)
         await bot.send_message(
             user.user_id, 
-            f"<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href='https://saturn-online.su/setup-guide/windows/v2raytun'>инструкцией</a>", 
-            reply_markup=get_callback_btns(
+            f'<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href="https://saturn-online.su/setup-guide/windows/v2raytun">инструкцией</a>', 
+            reply_markup=get_inlineMix_btns(
                 btns={ 
                     "Дополнительная настройка": "https://saturn-online.su/setup-guide/"
                 }
