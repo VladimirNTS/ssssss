@@ -382,7 +382,7 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
         new_date = current_date + relativedelta(months=tariff.sub_time)
 
         cookies = await auth(server.server_url, server.login, server.password)
-        
+        print(cookies)
         new_vpn_user = await add_customer(
             server.server_url,
             server.indoub_id,
@@ -400,8 +400,6 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
         # await orm_end_payment(session, payment.id)
         await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
         url = f'vless://{new_vpn_user["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(new_vpn_user["email"])}'
-        with open('log.txt', 'w') as f:
-            f.write(url)
         await bot.send_message(
             user.user_id, 
             f'<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href="https://saturn-online.su/setup-guide/windows/v2raytun">инструкцией</a>', 

@@ -1,3 +1,4 @@
+import json
 import asyncio
 import os
 import aiohttp
@@ -30,46 +31,52 @@ async def auth(server, login, password):
     print(data)
 
     async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.post(server + '/login', data=data) as response:
-            print(response)
+        async with session.post(server + 'login', data=data) as response:
             text = await response.text()
-            print(text)
             cookies = response.cookies
             print(cookies)
             return cookies
 
 
 async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip, chat_id, username):
-    uu_id = uuid.uuid4()
+    uu_id = str(uuid.uuid4())
     sub_id = str(uuid.uuid4()).split('-')[0]
 
-    client_data = {
-        "id": str(uu_id),
-        "flow": "xtls-rprx-vision", 
+    # ТОЧНО повторяем формат из рабочего Postman запроса
+    client_obj = {
+        "id": uu_id,
+        "flow": "xtls-rprx-vision",
         "email": email,
         "limitIp": int(limit_ip),
         "totalGB": 0,
         "expiryTime": int(expire_time),
         "enable": True,
-        "tgId": str(chat_id),
-        "subId": sub_id,
-        "comment": username,
+        "comment": str(username),
         "reset": 0
     }
-
-    data = {
-        'id': int(indoub_id),
-        'settings': client_data
+    
+    # Создаем объект с массивом clients
+    settings_obj = {
+        "clients": [client_obj]
     }
-
+    
+    # Преобразуем в JSON строку (без лишних пробелов)
+    settings_str = json.dumps(settings_obj)
+    print(settings_str)
+    with open('log.txt', 'w') as f:
+        f.write(settings_str)
+    data = {
+        'id': int(indoub_id),  # Убедитесь, что это число!
+        'settings': settings_str
+    }
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            server + '/panel/api/inbounds/addClient',
+            server + 'panel/inbound/addClient',
             data=data,
         ) as response:
             text = await response.text()
             
-            print(response)
+            print('Ответ:', response, text)
 
             return {
                 "response": text,
@@ -94,6 +101,7 @@ async def edit_customer_date(server, cookies, expire_time, id, session):
             server + f'/panel/inbound/updateClient/{user.tun_id}',
             data=data,
         ) as response:
+            print(response.json())
             text = await response.text()
             return {
                 "response": text,
