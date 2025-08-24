@@ -43,14 +43,28 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
     uu_id = uuid.uuid4()
     sub_id = str(uuid.uuid4()).split('-')[0]
 
+    client_data = {
+        "id": str(uu_id),
+        "flow": "xtls-rprx-vision", 
+        "email": email,
+        "limitIp": int(limit_ip),
+        "totalGB": 0,
+        "expiryTime": int(expire_time),
+        "enable": True,
+        "tgId": str(chat_id),
+        "subId": sub_id,
+        "comment": username,
+        "reset": 0
+    }
+
     data = {
-        'id': str(indoub_id),
-        'settings': '{"clients": [{\n  "id": "%s",\n  "flow": "xtls-rprx-vision",\n  "email": "%s",\n  "limitIp": %s,\n  "totalGB": 0,\n  "expiryTime": %s,\n  "enable": true,\n  "tgId": %s,\n  "subId": "%s",\n  "comment": "%s",\n  "reset": 0\n}]}' % (uu_id, email, limit_ip, expire_time, chat_id, sub_id, username)
+        'id': int(indoub_id),
+        'settings': client_data
     }
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            server + '/panel/inbound/addClient',
+            server + '/panel/api/inbounds/addClient',
             data=data,
         ) as response:
             text = await response.text()
