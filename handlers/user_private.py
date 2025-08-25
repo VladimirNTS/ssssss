@@ -84,7 +84,7 @@ async def start(message: types.Message, session):
 @user_private_router.callback_query(F.data=='about')
 async def about(callback: types.CallbackQuery):
     await callback.message.edit_caption(
-        caption='<b>О нас:</b>\n\nМы предоставляем техническую услугу по организации шифрованного соединения (VPN). Не являемся СМИ, не размещаем и не контролируем контент. Сервис не предназначен для обхода ограничений и доступа к запрещённой информации.\n\nХарактеристики, сроки и стоимость — в интерфейсе бота и в <a href="https://skynetvpn.ru/terms-of-service.html">Публичной оферте</a>.\n\n<b>Исполнитель</b>: \nИП Мелконьян Елена Павловна, ИНН 232017219889, ОГРНИП 324237500172507.\n\n<b>Контакты оператора ПДн</b>: \ne-mail: 555cent@mail.ru.',
+        caption='<b>О нас:</b>\n\nМы предоставляем техническую услугу по организации шифрованного соединения (VPN). Не являемся СМИ, не размещаем и не контролируем контент. Сервис не предназначен для обхода ограничений и доступа к запрещённой информации.\n\nПолный текст — <a href="https://skynetvpn.ru/privacy-policy.html">Политика конфидециальности</a>.\n\nХарактеристики, сроки и стоимость — в интерфейсе бота и в <a href="https://skynetvpn.ru/terms-of-service.html">Публичной оферте</a>.\n\n<b>Исполнитель</b>: \nИП Мелконьян Елена Павловна, ИНН 232017219889, ОГРНИП 324237500172507.\n\n<b>Контакты оператора ПДн</b>: \ne-mail: 555cent@mail.ru.',
         reply_markup=get_inlineMix_btns(
                     btns={"⬅ Назад": "back_menu"},
                     sizes=(1,)
@@ -163,7 +163,7 @@ async def show_chousen(callback, session):
         tariff = await orm_get_tariff(session, callback.data.split('_')[-1].split('|')[0])
         
         await callback.message.edit_caption(
-            caption=f"Вы выбрали подписку: <b>{tariff.sub_time} мес.</b>\nСтоимость: <b>{tariff.price} руб.</b>\nСпособ оплаты: <b>Банковская карта</b>\nВремя на оплату: <b>10 минут</b>\n\nПосле оплаты <b>SkynetVPN будет отправлена в течение минуты.</b>",
+            caption=f"Вы выбрали подписку: <b>{tariff.sub_time} мес.</b>\nСтоимость: <b>{tariff.price} руб.</b>\nСпособ оплаты: <b>Банковская карта</b>\nВремя на оплату: <b>10 минут</b>\n\nВсе подписки продлеваются автоматически. Отмена подписки возможна в любой момент.\n\nПосле оплаты <b>SkynetVPN будет отправлена в течение минуты.</b>",
             reply_markup=get_inlineMix_btns(
                 btns={
                     'Оплатить': f"{os.getenv('PAY_PAGE_URL')}/new_subscribe?user_id={callback.data.split('_')[-1].split('|')[1]}&sub_id={tariff.id}", 
