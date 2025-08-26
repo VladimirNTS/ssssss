@@ -42,7 +42,6 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
     uu_id = str(uuid.uuid4())
     sub_id = str(uuid.uuid4()).split('-')[0]
 
-    # ТОЧНО повторяем формат из рабочего Postman запроса
     client_obj = {
         "id": uu_id,
         "flow": "xtls-rprx-vision",
@@ -55,18 +54,16 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
         "reset": 0
     }
     
-    # Создаем объект с массивом clients
     settings_obj = {
         "clients": [client_obj]
     }
     
-    # Преобразуем в JSON строку (без лишних пробелов)
     settings_str = json.dumps(settings_obj)
     print(settings_str)
     with open('log.txt', 'w') as f:
         f.write(settings_str)
     data = {
-        'id': int(indoub_id),  # Убедитесь, что это число!
+        'id': int(indoub_id),
         'settings': settings_str
     }
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
@@ -98,7 +95,7 @@ async def edit_customer_date(server, cookies, expire_time, id, session):
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            server + f'/panel/inbound/updateClient/{user.tun_id}',
+            server + f'panel/inbound/updateClient/{user.tun_id}',
             data=data,
         ) as response:
             print(response.json())
@@ -110,7 +107,40 @@ async def edit_customer_date(server, cookies, expire_time, id, session):
             }
 
 
+async def get_client(cookies, server, user_id, inbound):
+    
+    async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
+        async with session.get(
+            server + f'panel/api/inbounds/get/{inbound}',
+        ) as response:
+            json_resp = await response.json()
+            with open('log.txt', 'w') as f:
+                f.write(str(json_resp['obj']))
+            clients = json.loads(json_resp['obj']['settings'])['clients']
+            pbi = json.loads(json_resp['obj']['streamSettings'])['realitySettings']
+            short_id = json.loads(json_resp['obj']['streamSettings'])['realitySettings']['shortIds'][0]
 
+            for client in clients:
+                if client['id'] == user_id:
+                    return {
+                        "response": client,
+                        "settings": pbi,
+                        "ip": json_resp['obj']['tag'].split('-')[-1],
+                        "short_id": short_id
+                    }
+
+
+async def delete_customer(server, cookies, user_uuid):
+
+    async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
+        async with session.post(
+            server.server_url + f'panel/api/inbounds/{server.inbound_id}/delClient/{user_uuid}',
+        ) as response:
+            print(response.json())
+            text = await response.text()
+            return {
+                "response": text,
+            }
 
 
 

@@ -1,11 +1,13 @@
+from typing import Union
 import hashlib
+import json
 import logging
 import os
 from datetime import datetime, timedelta
 from urllib.parse import quote
 from dateutil.relativedelta import relativedelta
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -34,14 +36,18 @@ from database.queries import (
     orm_get_server,
     orm_get_servers,
 )
-from skynetapi.skynetapi import auth, add_customer, edit_customer_date
+from skynetapi.skynetapi import auth, get_client, add_customer, edit_customer_date
 from kbds.inline import get_inlineMix_btns
 
 class PayResponce(BaseModel):
-    OutSum: float
-    InvId: int
-    Fee: float
+    OutSum: Union[str, float, int]
+    InvId: Union[str, float, int]
+    Fee: Union[str, float, int, None] = None
     SignatureValue: str
+    EMail: Union[str, None] = None
+    PaymentMethod: Union[str, None] = None
+    IncCurrLabel: Union[str, None] = None
+    Shp_Receipt: Union[str, None] = None
 
 
 async def get_session(
@@ -80,21 +86,37 @@ async def subscribe(
 
     tariff = await orm_get_tariff(async_session, tariff_id=sub_id)
     invoice_id = await orm_get_last_payment_id(async_session) + 1
-    
-    base_string = f"{os.getenv('SHOP_ID')}:{tariff.price}:{invoice_id}:{os.getenv('PASSWORD_1')}"
-    signature_value = hashlib.md5(base_string.encode("utf-8")).hexdigest()
 
-    await orm_new_payment(async_session, tariff_id=tariff.id, user_id=user_id)
-    
     time_text = ''
     if tariff.sub_time == 1:
         time_text = 'месяц'
     elif tariff.sub_time < 5:
         time_text = 'месяца'
     else:
-        time_text = 'месяцев'
+        time_text = 'месяцев' 
 
-    return templates.TemplateResponse("/pay_new_subscribe.html", {"request": request, "price": tariff.price, "time": tariff.sub_time, "time_text": time_text,"shop_id": os.getenv("SHOP_ID"), "signature_value": signature_value, "invoice_id": invoice_id})
+
+    receipt =  {
+          "sno":"patent",
+          "items": [
+            {
+              "name": f"Подписка SkynetVPN на {tariff.sub_time} {time_text}",
+              "quantity": 1,
+              "sum": float(tariff.price),
+              "payment_method": "full_payment",
+              "payment_object": "service",
+              "tax": "vat10"
+            },
+          ]
+        }
+
+    print(json.dumps(receipt, ensure_ascii=False))
+    base_string = f"{os.getenv('SHOP_ID')}:{tariff.price}:{invoice_id}:{json.dumps(receipt, ensure_ascii=False)}:LqEdLIWz7WQ4Rz2rY1z7" #{os.getenv('PASSWORD_1')}"
+    signature_value = hashlib.md5(base_string.encode("utf-8")).hexdigest()
+
+    await orm_new_payment(async_session, tariff_id=tariff.id, user_id=user_id)
+    
+    return templates.TemplateResponse("/pay_new_subscribe.html", {"request": request, "price": tariff.price, "time": tariff.sub_time, "pay_data": json.dumps(receipt, ensure_ascii=False), "time_text": time_text,"shop_id": os.getenv("SHOP_ID"), "signature_value": signature_value, "invoice_id": invoice_id})
 
 
 @app.get("/new_order", response_class=HTMLResponse)
@@ -116,11 +138,20 @@ async def buy(
     return templates.TemplateResponse("/buy_one_time.html", {"request": request, "price": tariff.price, "time": tariff.sub_time, "shop_id": os.getenv("SHOP_ID"), "signature_value": signature_value, "invoice_id": invoice_id})
 
 
-@app.post("/get_payment/")
-async def choose_server(*, body: PayResponce):
+@app.post("/get_payment")
+async def choose_server(
+        OutSum: Union[str, float, int] = Form(...),
+        InvId: Union[str, float, int] = Form(...),
+        Fee: Union[str, float, int, None] = Form(None),
+        SignatureValue: str = Form(...),
+        EMail: Union[str, None] = Form(None),
+        PaymentMethod: Union[str, None] = Form(None),
+        IncCurrLabel: Union[str, None] = Form(None),
+        Shp_Receipt: Union[str, None] = Form(None)
+    ):
     async_session = await get_session(session_pool=session)
 
-    payment = await orm_get_payment(async_session, body.InvId)
+    payment = await orm_get_payment(async_session, InvId)
     user = await orm_get_user_by_id(async_session, payment.user_id)
     tariff = await orm_get_tariff(async_session, payment.tariff_id)
     
@@ -128,18 +159,18 @@ async def choose_server(*, body: PayResponce):
     servers = await orm_get_servers(async_session)
 
     for i in servers:
-        btns[i.name] = f'chooseserver_{i.id}_{body.InvId}'
+        btns[i.name] = f'chooseserver_{i.id}_{InvId}'
     
     await bot.send_message(
         user.user_id,
-        text="<b>Вы купили подписку на Skynet VPN\n\nВыберите сервер:</b>",
+        text="<b>Вы купили подписку на Skynet VPN\n\nВыберите сервер:</b>\n\n👑 - без рекламы на YouTube\n🎧 - YouTube можно сворачивать",
         reply_markup=get_inlineMix_btns(
             btns=btns,
             sizes=(1,)
         )
     )
 
-    return f'OK{body.InvId}'
+    return f'OK{InvId}'
 
 
 
@@ -171,8 +202,19 @@ async def redirect_to_new_url(user_id: int):
     async_session = await get_session(session_pool=session)
     user = await orm_get_user_by_id(async_session, user_id=user_id)
     print(bool(user))
+    server = await orm_get_server(async_session, user.server)
+    cookies = await auth(server.server_url, server.login, server.password)
+    data = await get_client(cookies, server.server_url, user.tun_id, server.indoub_id)
+    client_data = data['response']
+    settings = data['settings']
+    
+    domain = server.server_url.split('://')[-1].split('/')[0]
+
+    url = f'vless://{client_data["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
+        
+
     if user:
-        url = f'v2raytun://import/{user.tun_id}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(user.name)}'
+        url = f'v2raytun://import/{url}'
         return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
 
 

@@ -29,7 +29,7 @@ from database.queries import (
     orm_end_payment,
     orm_get_payment
 )
-from skynetapi.skynetapi import auth, add_customer, edit_customer_date
+from skynetapi.skynetapi import auth, add_customer, edit_customer_date, get_client
 
 user_private_router = Router()
 user_private_router.message.filter(BlockedUsersFilter())
@@ -261,22 +261,29 @@ async def other_products(callback: types.CallbackQuery, session):
 
 # Check subscription
 @user_private_router.callback_query(F.data.startswith('check_subscription'))
-async def check_subscription(callback: types.CallbackQuery, session):
+async def check_subscription(callback: types.CallbackQuery, session): 
     user_id = callback.from_user.id
-    
     user = await orm_get_user(session, user_id)
-    tariff = await orm_get_tariff(session, user.status)
-    with open('log.txt', 'w') as f:
-        f.write(str(user.server) + " " + str(user.name))
-    server = await orm_get_server(session, user.server)
-
-    url = f'vless://{user.tun_id}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(user.name)}'
     
     if user.status > 0:
+    
+        tariff = await orm_get_tariff(session, user.status)
+        with open('log.txt', 'w') as f:
+            f.write(str(user.server) + " " + str(user.name))
+        server = await orm_get_server(session, user.server)
+    
+        cookies = await auth(server.server_url, server.login, server.password)
+        data = await get_client(cookies, server.server_url, user.tun_id, server.indoub_id)
+        client_data = data['response']
+        settings = data['settings']
+    
+        domain = server.server_url.split('://')[-1].split('/')[0]
+
+        url = f'vless://{client_data["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
         try:
             await callback.message.edit_caption(
-                caption=f"<b>Текущий тариф</b>: {tariff.sub_time} мес. {tariff.price} ₽ {'(Подписка)' if tariff.recuring == True else '(Единоразовая покупка)'}\n<b>Сервер</b>: {server.name}\n\nВаша подписка действует до <b>{user.sub_end.date()}</b>. \n\nВаша ссылка для подключения: <code>{url}</code>",
-                reply_markup=get_inlineMix_btns(btns={"Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', 'Сменить сервер': 'changeserver','Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
+                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> мес. \n├ Цена в месяц <b>{tariff.price} ₽</b> \n└ <b>Выбран сервер</b>: <b>{server.name}</b> \n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать: <code>{url}</code>",
+                reply_markup=get_inlineMix_btns(btns={"🛜П одключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', '🔄 Сменить сервер': 'changeserver','🚫 Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
             )
         except TelegramBadRequest as e:
             if "message is not modified" in str(e):
@@ -299,7 +306,7 @@ async def change_server(callback: types.CallbackQuery, session):
 
     try:
         await callback.message.edit_caption(
-            caption="Выберите сервер:",
+            caption="<b>🔄 Смена сервера</b>\nПосле выбора нового сервера вам будет отправлен новый ключ доступа.\n\nВыберите сервер:",
             reply_markup=get_inlineMix_btns(
                 btns=btns,
                 sizes=(1,)
@@ -313,11 +320,16 @@ async def change_server(callback: types.CallbackQuery, session):
 
 
 
+@user_private_router.callback_query(F.data.startswith('changesubscribe_'))
+async def change_tariff():
+    pass
+
+
 @user_private_router.callback_query(F.data.startswith('cancelsub_'))
 async def cancel_subscription(callback, session):
     try:
-        user = await orm_get_user_by_id(session, callback.data.split('_')[-1])
-        await orm_change_user_status(session, user.id, 0, sub_end, user.tun_id)
+        user = await orm_get_user(session, callback.from_user.id)
+        await orm_change_user_status(session, user.id, 0, user.sub_end, user.tun_id)
         await callback.message.answer("Подписка отменена")
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
@@ -339,18 +351,49 @@ async def install_helper(callback: types.CallbackQuery, session):
         raise
 
 
+@user_private_router.callback_query(F.data == 'install_mes')
+async def install_helper(callback: types.CallbackQuery, session):
+    try:
+        await callback.message.edit_caption(
+            caption="<b>Выберите своё устройство</b>: \n\nСделали пошаговые инструкции для подключения VPN! Нажмите на нужную кнопку и подключайтесь за несколько минут.",
+            reply_markup=get_callback_btns(btns={'📱 Android': 'help_android', '🍏 Iphone': 'help_iphone', '🖥 Windows': 'help_windows', '💻 MacOS': 'help_macos', '🐧 Linux': 'help_linux', '📺 AndroidTV': 'help_androidtv', "⬅ Назад": "back_menu"}, sizes=(2,2,2,1))
+        )
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            await callback.answer("Изменений нет")
+            return
+        raise
+
+
 @user_private_router.callback_query(F.data.startswith('help_'))
 async def install(callback):
     text = {
             'android': '<b>📖 Для подключения VPN на Android:</b>\n\n1. Установите приложение «v2RayTun» из Google Play по кнопке ниже.\n\n2. Нажмите кнопку «🔗 Добавить профиль», чтобы добавить подключение в приложение.\n\n3. Всё готово! Теперь вы под защитой и можете без преград пользоваться интернетом!|||https://play.google.com/store/apps/details?id=com.v2raytun.android&pcampaignid=web_share',
             'iphone': '<b>📖 Для подключения VPN на Iphone:</b>\n\n1. Установите приложение «v2RayTun» из App Store по кнопке ниже.\n\n2. Нажмите кнопку «🔗 Добавить профиль», чтобы добавить подключение в приложение.\n\n3. Всё готово! Теперь вы под защитой и можете без преград пользоваться интернетом!|||https://apps.apple.com/ru/app/v2raytun/id6476628951',
-            'windows': '<b>📖 Для подключения VPN на Windows:</b>\n\n1. Установите приложение «v2RayTun» по кнопке ниже.\n\n2. Нажмите кнопку «🔗 Добавить профиль», чтобы добавить подключение в приложение.\n\n3. Всё готово! Теперь вы под защитой и можете без преград пользоваться интернетом!|||https://storage.v2raytun.com/v2RayTun_Setup.exe',
+            'windows': '<b>Инструкция для Windows:</b>\n\n1. Скопировать ключ, который вы получили\n\n2. Запустить приложение v2raytun от имени администратора (1 СКРИН )\n\n3. Вверху справа нажать "+" и выбрать первое предложенное "Импортировать из буфера обмена" или на английском: "Import from clickboard"  (2 СКРИН)\n\n4. Зайти в Настройки – Настройки трафика – Режим – Туннель (3 СКРИН)\n\n5. Вернуться в главное меню, проверить появился ли ключ и запустить ВПН (4 СКРИН)\n\n6. Всё готово! Теперь вы под защитой и можете без преград пользоваться интернетом!|||https://storage.v2raytun.com/v2RayTun_Setup.exe',
             'macos': '<b>📖 Для подключения VPN на MacOS:</b>\n\n1. Установите приложение «v2RayTun» из App Store по кнопке ниже.\n\n2. Нажмите кнопку «🔗 Добавить профиль», чтобы добавить подключение в приложение.\n\n3. Всё готово! Теперь вы под защитой и можете без преград пользоваться интернетом!|||https://apps.apple.com/ru/app/v2raytun/id6476628951',
             'linux': '<b>📖 Для подключения VPN на Linux:</b>\n\n1. Скачайте приложение Hiddify по кнопке ниже и установите его на ваш компьютер.\n\n2. Нажмите кнопку «🔗 Добавить профиль», чтобы добавить подключение в приложение.\n\n3. Всё готово! Теперь вы под защитой и можете без преград пользоваться интернетом!|||https://github.com/hiddify/hiddify-app/releases/latest/download/Hiddify-Linux-x64.AppImage',
             'androidtv': '<b>📖 Для подключения VPN на Android:</b>\n\n1. Установите приложение «v2RayTun» из Google Play по кнопке ниже.\n\n2. Нажмите кнопку «🔗 Добавить профиль», чтобы добавить подключение в приложение.\n\n3. Всё готово! Теперь вы под защитой и можете без преград пользоваться интернетом!|||https://play.google.com/store/apps/details?id=com.v2raytun.android&pcampaignid=web_share',
             }
     
     try:
+        if text[callback.data.split('_')[-1]].split('|||')[0] == 'windows':
+            await callback.message.delete()
+
+            media = [
+                types.InputMediaPhoto(media="img/inst")
+            ]
+
+            await callback.message.answer_media_group(
+                caption=text[callback.data.split('_')[-1]].split('|||')[0],
+                reply_markup=get_inlineMix_btns(
+                    btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "back_menu"},
+                    sizes=(1,)
+                )
+            )
+
+            return
+
         await callback.message.edit_caption(
             caption=text[callback.data.split('_')[-1]].split('|||')[0],
             reply_markup=get_inlineMix_btns(
@@ -358,6 +401,7 @@ async def install(callback):
                 sizes=(1,)
             )
         )
+
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             await callback.answer()
@@ -373,11 +417,12 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
     if payment.paid:
         print('Ошибка: оплата уже совершена')
         return
+    
     user = await orm_get_user_by_id(session, payment.user_id)
     tariff = await orm_get_tariff(session, payment.tariff_id)
     server = await orm_get_server(session, user.server)
     print(user.status) 
-    if 1:
+    if user.status == 0:
         current_date = datetime.now()
         new_date = current_date + relativedelta(months=tariff.sub_time)
 
@@ -391,25 +436,35 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
             (new_date.timestamp() * 1000),
             tariff.devices,
             user.user_id,
-            callback.from_user.id or user.name
+            callback.from_user.username or user.name
         )
-
+        
+        await orm_end_payment(session, payment.id) 
         date = new_vpn_user['expire_time'] / 1000 
         date = datetime.fromtimestamp(date)
-
-        # await orm_end_payment(session, payment.id)
+        data = await get_client(cookies, server.server_url, new_vpn_user['id'], server.indoub_id)
+        client_data = data['response']
+        settings = data['settings']
+    
         await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
-        url = f'vless://{new_vpn_user["id"]}@super.skynetvpn.ru:443?type=tcp&security=tls&fp=chrome&alpn=h3%2Ch2%2Chttp%2F1.1&flow=xtls-rprx-vision#SkynetVPN-{quote(new_vpn_user["email"])}'
+        
+        await callback.message.delete()
+        user = await orm_get_user_by_id(session, payment.user_id)
+
+        url = f'vless://{new_vpn_user["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
         await bot.send_message(
             user.user_id, 
-            f'<b>Подписка оформлена!</b>\nВаша подписка активна до {date}\n\nВаша ссылка для подключения <code>{url}</code>\n\nСпасибо за покупку!\n\nПользователем Windows рекомендуем ознакомиться с <a href="https://saturn-online.su/setup-guide/windows/v2raytun">инструкцией</a>', 
+            f'<b>✅Подписка оформлена!</b>\n\n🗓 Ваша подписка активна до {user.sub_end.date()}\n\n⬇️ Скопируйте ключ доступа. Для копирования ключа нажмите на него 1 раз. ⬇️ \n\n<b>Ваш ключ доступа</b> <code>{url}</code>\n\n<b>Пользователем Windows рекомендуем ознакомиться с <a href="https://saturn-online.su/setup-guide/windows/v2raytun">инструкцией</a></b>\n\n Для подключения можете воспользоваться кнопкой ниже⬇️', 
             reply_markup=get_inlineMix_btns(
                 btns={ 
-                    "Дополнительная настройка": "https://saturn-online.su/setup-guide/"
-                }
+                    "↗️ Подключиться": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}',
+                    "📖Инструкция для подключения": "install_mes",
+                    "⚙️ Дополнительная настройка": "https://saturn-online.su/setup-guide/"
+                },
+                sizes=(1,)
             )
         )
-        callback.message.delete()
+
 
 async def release():
     async_session = await get_session(session_pool=session)

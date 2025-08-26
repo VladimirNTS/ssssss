@@ -676,7 +676,7 @@ async def back_step_add_tariff(message: types.Message, state: FSMContext):
         previous = step
 
 
-@admin_private_router.callback_query(StateFilter(None), F.data == "editserver")
+@admin_private_router.callback_query(StateFilter(None), F.data.startswith("editserver"))
 async def add_product_description(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(server_id=callback.data.split('_')[-1])
     
@@ -686,14 +686,20 @@ async def add_product_description(callback: types.CallbackQuery, state: FSMConte
 
 @admin_private_router.message(FSMEditServer.name)
 async def add_product_description(message, state: FSMContext):
-    await state.update_data(name=message.text)
+    if message.text == '.':
+        await state.update_data(password=None)
+    else:
+        await state.update_data(name=message.text)
     await message.answer('Введите url на админ панель сервера:')
     await state.set_state(FSMEditServer.url)
 
 
 @admin_private_router.message(FSMEditServer.url)
 async def add_product_description(message: types.Message, state: FSMContext):
-    await state.update_data(url=message.text)
+    if message.text == '.':
+        await state.update_data(password=None)
+    else:
+        await state.update_data(url=message.text)
     await message.answer('Введите id индауба:')
     
     await state.set_state(FSMEditServer.indoub_id)
@@ -702,7 +708,10 @@ async def add_product_description(message: types.Message, state: FSMContext):
 @admin_private_router.message(FSMEditServer.indoub_id)
 async def add_product_description(message: types.Message, state: FSMContext):
     try:
-        await state.update_data(indoub_id=int(message.text))
+        if message.text == '.':
+            await state.update_data(password=None)
+        else:
+            await state.update_data(indoub_id=int(message.text))
         await message.answer('Введите логин админ панели сервера:')
     
         await state.set_state(FSMEditServer.login)
@@ -712,7 +721,10 @@ async def add_product_description(message: types.Message, state: FSMContext):
 
 @admin_private_router.message(FSMEditServer.login)
 async def add_product_description(message: types.Message, state: FSMContext):
-    await state.update_data(login=message.text)
+    if message.text == '.':
+        await state.update_data(password=None)
+    else:
+        await state.update_data(login=message.text)
     await message.answer('Введите пароль админ панели сервера:')
 
     await state.set_state(FSMEditServer.password)
@@ -728,9 +740,9 @@ async def edit_tariff_pay_id(message: types.Message, state: FSMContext, session)
     data = await state.get_data()
     # Оставляем только те поля, которые не None
     update_fields = {k: v for k, v in data.items() if v is not None}
-    del update_fields['tariff_id']
+    del update_fields['server_id']
     await message.answer('✅ Сервер изменен')
-    await orm_edit_server(session=session, id=data['tariff_id'], fields=update_fields)
+    await orm_edit_server(session=session, id=data['server_id'], fields=update_fields)
     await state.clear()
 
 
