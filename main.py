@@ -111,7 +111,7 @@ async def subscribe(
         }
 
     print(json.dumps(receipt, ensure_ascii=False))
-    base_string = f"{os.getenv('SHOP_ID')}:{tariff.price}:{invoice_id}:{json.dumps(receipt, ensure_ascii=False)}:LqEdLIWz7WQ4Rz2rY1z7" #{os.getenv('PASSWORD_1')}"
+    base_string = f"{os.getenv('SHOP_ID')}:{tariff.price}:{invoice_id}:{json.dumps(receipt, ensure_ascii=False)}:{os.getenv('PASSWORD_1')}"
     signature_value = hashlib.md5(base_string.encode("utf-8")).hexdigest()
 
     await orm_new_payment(async_session, tariff_id=tariff.id, user_id=user_id)

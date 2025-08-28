@@ -89,13 +89,13 @@ async def edit_customer_date(server, cookies, expire_time, id, session):
     user = orm_get_user(session, id)
 
     data = {
-        'id': '1',
-        'settings': '{"clients": [{\n  "id": "%s",\n  "flow": "xtls-rprx-vision",\n  "email": "%s",\n  "limitIp": 0,\n  "totalGB": 0,\n  "expiryTime": %s,\n  "enable": true,\n  "tgId": "",\n  "subId": "%s",\n  "comment": "",\n  "reset": 0\n}]}' % (user.tun_id, user.name, expire_time, user.sub_id),
+        'id': server.indoub_id,
+        'settings': '{"clients": [{\n"expiryTime": %s}]}' % (expire_time),
     }
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            server + f'panel/inbound/updateClient/{user.tun_id}',
+            server.server_url + f'panel/api/inbounds/updateClient/{user.tun_id}',
             data=data,
         ) as response:
             print(response.json())
@@ -134,7 +134,7 @@ async def delete_customer(server, cookies, user_uuid):
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            server.server_url + f'panel/api/inbounds/{server.inbound_id}/delClient/{user_uuid}',
+            server.server_url + f'panel/api/inbounds/{server.indoub_id}/delClient/{user_uuid}',
         ) as response:
             print(response.json())
             text = await response.text()

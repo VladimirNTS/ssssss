@@ -29,7 +29,7 @@ from database.queries import (
     orm_end_payment,
     orm_get_payment
 )
-from skynetapi.skynetapi import auth, add_customer, edit_customer_date, get_client
+from skynetapi.skynetapi import auth, add_customer, edit_customer_date, get_client, delete_customer
 
 user_private_router = Router()
 user_private_router.message.filter(BlockedUsersFilter())
@@ -278,17 +278,45 @@ async def check_subscription(callback: types.CallbackQuery, session):
         settings = data['settings']
     
         domain = server.server_url.split('://')[-1].split('/')[0]
-
         url = f'vless://{client_data["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
+
         try:
+            time_text = 'месяц'
+            if tariff.sub_time > 1 and tariff.sub_time < 5:
+                time_text = 'месяца'
+            elif tariff.sub_time >= 5:
+                time_text = 'месяцев'
+
             await callback.message.edit_caption(
-                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> мес. \n├ Цена в месяц <b>{tariff.price} ₽</b> \n└ <b>Выбран сервер</b>: <b>{server.name}</b> \n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать: <code>{url}</code>",
-                reply_markup=get_inlineMix_btns(btns={"🛜П одключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', '🔄 Сменить сервер': 'changeserver','🚫 Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
+                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> \n├ Цена <b>{tariff.price} ₽ за {tariff.sub_time} {time_text}</b> \n└ <b>Выбран сервер</b>: <b>{server.name}</b> \n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать:\n <code>{url}</code>",
+                reply_markup=get_inlineMix_btns(btns={"🛜 Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', '🔄 Сменить сервер': 'changeserver','🚫 Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
             )
         except TelegramBadRequest as e:
             if "message is not modified" in str(e):
                 return
             raise
+    elif user.tun_id:
+        tariff = await orm_get_tariff(session, user.status)
+        with open('log.txt', 'w') as f:
+            f.write(str(user.server) + " " + str(user.name))
+        server = await orm_get_server(session, user.server)
+    
+        cookies = await auth(server.server_url, server.login, server.password)
+        data = await get_client(cookies, server.server_url, user.tun_id, server.indoub_id)
+        client_data = data['response']
+        settings = data['settings']
+        
+        url = f'vless://{client_data["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
+        
+        try:
+            await callback.message.edit_caption(
+                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> \n└ <b>Выбран сервер</b>: <b>{server.name}</b> \n\n<b>⚠️ Ваша подписка отменена и больше не будет автоматически продлеваться.</b>\n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать: \n<code>{url}</code>",
+                reply_markup=get_inlineMix_btns(btns={"🛜 Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', "Продлить подписку": "choosesubscribe", "⬅ Назад": "back_menu"}, sizes=(1,))
+            )
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e):
+                return
+           
     else:
         await callback.answer("У вас нет активной подписки", show_alert=True)
 
@@ -306,7 +334,7 @@ async def change_server(callback: types.CallbackQuery, session):
 
     try:
         await callback.message.edit_caption(
-            caption="<b>🔄 Смена сервера</b>\nПосле выбора нового сервера вам будет отправлен новый ключ доступа.\n\nВыберите сервер:",
+            caption="<b>🔄 Смена сервера</b>\nПосле выбора нового сервера вам будет отправлен новый ключ доступа.\n\nВыберите новый сервер:\n\n👑 - без рекламы на YouTube\n🎧 - YouTube можно сворачивать",
             reply_markup=get_inlineMix_btns(
                 btns=btns,
                 sizes=(1,)
@@ -321,16 +349,42 @@ async def change_server(callback: types.CallbackQuery, session):
 
 
 @user_private_router.callback_query(F.data.startswith('changesubscribe_'))
-async def change_tariff():
-    pass
+async def change_tariff(callback, session):
+    user = await orm_get_user(session, callback.from_user.id)
+    server = await orm_get_server(session, user.server)
+
+    cookies = await auth(server.server_url, server.login, server.password)
+    await delete_customer(server, cookies, user.tun_id)
+
+    await orm_change_user_server(session, user.id, int(callback.data.split('_')[-1]))
+
+    server = await orm_get_server(session, user.server)
+    tariff = await orm_get_tariff(session, user.status)
+
+
+    new_vpn_user = await add_customer(
+        server.server_url,
+        server.indoub_id,
+        cookies, 
+        server.name + '_' + str(user.id),
+        (user.sub_end.timestamp() * 1000),
+        tariff.devices,
+        user.user_id,
+        callback.from_user.username or user.name
+    )
+
+    await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=user.sub_end)
+    await check_subscription(callback, session)
 
 
 @user_private_router.callback_query(F.data.startswith('cancelsub_'))
 async def cancel_subscription(callback, session):
     try:
         user = await orm_get_user(session, callback.from_user.id)
+        
         await orm_change_user_status(session, user.id, 0, user.sub_end, user.tun_id)
-        await callback.message.answer("Подписка отменена")
+        await callback.answer("Подписка отменена", show_alert=True)
+        await check_subscription(callback, session)
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             return
@@ -377,19 +431,24 @@ async def install(callback):
             }
     
     try:
-        if text[callback.data.split('_')[-1]].split('|||')[0] == 'windows':
-            await callback.message.delete()
+        if callback.data.split('_')[-1].split('|||')[0] == 'windows':
 
             media = [
-                types.InputMediaPhoto(media="img/inst")
+                types.InputMediaPhoto(
+                    media=types.FSInputFile("img/instruction_windows_1.jpg"), 
+                    caption=text[callback.data.split('_')[-1]].split('|||')[0],
+                    reply_markup=get_inlineMix_btns(
+                        btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "back_menu"},
+                        sizes=(1,)
+                    )
+                ),
+                types.InputMediaPhoto(media=types.FSInputFile("img/instruction_windows_2.jpg")),
+                types.InputMediaPhoto(media=types.FSInputFile("img/instruction_windows_3.jpg")),
+                types.InputMediaPhoto(media=types.FSInputFile("img/instruction_windows_4.jpg")),
             ]
 
             await callback.message.answer_media_group(
-                caption=text[callback.data.split('_')[-1]].split('|||')[0],
-                reply_markup=get_inlineMix_btns(
-                    btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "back_menu"},
-                    sizes=(1,)
-                )
+                media=media,
             )
 
             return
@@ -428,18 +487,31 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
 
         cookies = await auth(server.server_url, server.login, server.password)
         print(cookies)
-        new_vpn_user = await add_customer(
-            server.server_url,
-            server.indoub_id,
-            cookies, 
-            server.name + '_' + str(user.id),
-            (new_date.timestamp() * 1000),
-            tariff.devices,
-            user.user_id,
-            callback.from_user.username or user.name
-        )
-        
         await orm_end_payment(session, payment.id) 
+
+        if not user.tun_id:
+            new_vpn_user = await add_customer(
+            	server.server_url,
+            	server.indoub_id,
+            	cookies, 
+            	server.name + '_' + str(user.id),
+            	(new_date.timestamp() * 1000),
+            	tariff.devices,
+           	user.user_id,
+            	callback.from_user.username or user.name
+            )
+        elif user.tun_id:
+            new_vpn_user = {'id': user.tun_id}
+            new_date = user.sub_end + relativedelta(months=tariff.sub_time)
+            date = new_date['expire_time'] / 1000
+
+            await edit_customer_date(server, cookies, date, user.tun_id, session)
+
+            await check_subscription(callback, session)
+            date = datetime.fromtimestamp(date)
+
+            await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(user.tun_id), sub_end=date)
+
         date = new_vpn_user['expire_time'] / 1000 
         date = datetime.fromtimestamp(date)
         data = await get_client(cookies, server.server_url, new_vpn_user['id'], server.indoub_id)
@@ -454,7 +526,7 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
         url = f'vless://{new_vpn_user["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
         await bot.send_message(
             user.user_id, 
-            f'<b>✅Подписка оформлена!</b>\n\n🗓 Ваша подписка активна до {user.sub_end.date()}\n\n⬇️ Скопируйте ключ доступа. Для копирования ключа нажмите на него 1 раз. ⬇️ \n\n<b>Ваш ключ доступа</b> <code>{url}</code>\n\n<b>Пользователем Windows рекомендуем ознакомиться с <a href="https://saturn-online.su/setup-guide/windows/v2raytun">инструкцией</a></b>\n\n Для подключения можете воспользоваться кнопкой ниже⬇️', 
+            f'<b>✅Подписка оформлена!</b>\n\n🗓 Ваша подписка активна до {user.sub_end.date()}\n\n⬇️ Скопируйте ключ доступа. Для копирования ключа нажмите на него 1 раз. ⬇️ \n\n<b>Ваш ключ доступа</b> <code>{url}</code>\n\n Для подключения можете воспользоваться кнопкой ниже⬇️', 
             reply_markup=get_inlineMix_btns(
                 btns={ 
                     "↗️ Подключиться": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}',
@@ -465,28 +537,26 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
             )
         )
 
+        if user.invited_by:
+            from_user = orm_get_user(session, user.invited_by)
+            
+            days = 15
 
-async def release():
-    async_session = await get_session(session_pool=session)
+            if tariff.sub_time == 6:
+                days = 30
+            elif tariff.sub_time == 12:
+                days = 45
 
-    payment = await orm_get_payment(async_session, body.InvId)
-    user = await orm_get_user_by_id(async_session, payment.user_id)
-    tariff = await orm_get_tariff(async_session, payment.tariff_id)
-    server = await orm_get_server(async_session, user.server)
+            sub_end = user.sub_end + relativedelta(days=days)
 
-    if not user.tun_id:
-        if tariff.recuring:
-            current_date = datetime.now()
-            new_date = current_date + relativedelta(months=tariff.sub_time)
+            await orm_change_user_status(session, from_user.id, from_user.status, sub_end, from_user.tun_id)
 
-            new_vpn_user = await add_customer(cookies=await auth(server.server_url, server.login, server.password), email=user.name, expire_time=(new_date.timestamp() * 1000), limit_ip=tariff.devices)
-            await create_subscription(new_vpn_user, async_session, user.id, tariff, bot)
-            print(new_vpn_user, async_session, user.id, tariff, bot)
-    if user.invited_by:
-            pass
+            await bot.send_message(
+                from_user.user_id, 
+                f'<b>Один из приглашеных вами друзей совершил покупку в боте!</b>\n\nВы получаете плюс {days} дней к своей текущей подписке\n\n🗓 Ваша подписка активна до {user.sub_end.date()}\n\n⬇️ Скопируйте ключ доступа. Для копирования ключа нажмите на него 1 раз. ⬇️ \n\n<b>Ваш ключ доступа</b> <code>{url}</code>\n\n<b>Пользователем Windows рекомендуем ознакомиться с <a href="https://saturn-online.su/setup-guide/windows/v2raytun">инструкцией</a></b>\n\n Для подключения можете воспользоваться кнопкой ниже⬇️', 
+            )
 
 
-    
 
 async def continue_subscription(sub_data: dict, session, user_id, tariff, bot):
     date = sub_data['expire_time'] / 1000 
