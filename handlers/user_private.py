@@ -65,7 +65,7 @@ async def start(message: types.Message, session):
                 "👫 Пригласить": "referral_program",
                 "❓ FAQ": "faq", "☎ Поддержка": "https://t.me/skynetaivpn_support",
                 "🛒 Другие продукты": "other_products",
-                "📄 О нас": "about"
+                "📄 Оферта | Политика": "about"
     }
     if message.from_user.id == int(os.getenv("OWNER")):
         btns["Админ панель"] = "admin"
@@ -278,8 +278,9 @@ async def check_subscription(callback: types.CallbackQuery, session):
         settings = data['settings']
     
         domain = server.server_url.split('://')[-1].split('/')[0]
-        url = f'vless://{client_data["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
 
+        url = f"{os.getenv('PAY_PAGE_URL')}get_congigs?user_id={callback.from_user.id}"
+        
         try:
             time_text = 'месяц'
             if tariff.sub_time > 1 and tariff.sub_time < 5:
@@ -289,7 +290,7 @@ async def check_subscription(callback: types.CallbackQuery, session):
 
             await callback.message.edit_caption(
                 caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> \n├ Цена <b>{tariff.price} ₽ за {tariff.sub_time} {time_text}</b> \n└ <b>Выбран сервер</b>: <b>{server.name}</b> \n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать:\n <code>{url}</code>",
-                reply_markup=get_inlineMix_btns(btns={"🛜 Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', '🔄 Сменить сервер': 'changeserver','🚫 Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
+                reply_markup=get_inlineMix_btns(btns={"🛜 Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', '🚫 Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
             )
         except TelegramBadRequest as e:
             if "message is not modified" in str(e):
@@ -306,7 +307,7 @@ async def check_subscription(callback: types.CallbackQuery, session):
         client_data = data['response']
         settings = data['settings']
         
-        url = f'vless://{client_data["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
+        url = f"{os.getenv('PAY_PAGE_URL')}get_congigs?user_id={callback.from_user.id}"
         
         try:
             await callback.message.edit_caption(
@@ -479,7 +480,7 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
     
     user = await orm_get_user_by_id(session, payment.user_id)
     tariff = await orm_get_tariff(session, payment.tariff_id)
-    server = await orm_get_server(session, user.server)
+    servers = await orm_get_servers(session)
     print(user.status) 
     if user.status == 0:
         current_date = datetime.now()
@@ -488,19 +489,26 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
         cookies = await auth(server.server_url, server.login, server.password)
         print(cookies)
         await orm_end_payment(session, payment.id) 
+        tun_ids = {}
+        user_servers = orm_get_user_servers(session, user.id)
 
-        if not user.tun_id:
-            new_vpn_user = await add_customer(
-            	server.server_url,
-            	server.indoub_id,
-            	cookies, 
-            	server.name + '_' + str(user.id),
-            	(new_date.timestamp() * 1000),
-            	tariff.devices,
-           	user.user_id,
-            	callback.from_user.username or user.name
-            )
-        elif user.tun_id:
+        if not user_servers:
+            for server in servers:
+                new_vpn_user = await add_customer(
+            	    server.server_url,
+                	server.indoub_id,
+                	cookies, 
+                	server.name + '_' + str(user.id),
+                	(new_date.timestamp() * 1000),
+            	    tariff.devices,
+                   	user.user_id,
+                	callback.from_user.username or user.name
+                )
+                tun_ids[str(server.id)] = new_vpn_user[id]
+
+            await orm_change_user_status(session, user.id, tariff.id, new_date, tun_ids)
+        
+        elif user_servers:
             new_vpn_user = {'id': user.tun_id}
             new_date = user.sub_end + relativedelta(months=tariff.sub_time)
             date = new_date['expire_time'] / 1000
@@ -512,18 +520,15 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
 
             await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(user.tun_id), sub_end=date)
 
-        date = new_vpn_user['expire_time'] / 1000 
-        date = datetime.fromtimestamp(date)
         data = await get_client(cookies, server.server_url, new_vpn_user['id'], server.indoub_id)
         client_data = data['response']
         settings = data['settings']
-    
-        await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(new_vpn_user['id']), sub_end=date)
         
         await callback.message.delete()
         user = await orm_get_user_by_id(session, payment.user_id)
 
-        url = f'vless://{new_vpn_user["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
+        url = f"{os.getenv('PAY_PAGE_URL')}get_congigs?user_id={callback.from_user.id}"
+
         await bot.send_message(
             user.user_id, 
             f'<b>✅Подписка оформлена!</b>\n\n🗓 Ваша подписка активна до {user.sub_end.date()}\n\n⬇️ Скопируйте ключ доступа. Для копирования ключа нажмите на него 1 раз. ⬇️ \n\n<b>Ваш ключ доступа</b> <code>{url}</code>\n\n Для подключения можете воспользоваться кнопкой ниже⬇️', 

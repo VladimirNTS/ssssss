@@ -69,3 +69,13 @@ class Server(Base):
     indoub_id: Mapped[int] = mapped_column(Integer())
 
 
+class UserServer(Base):
+    __tablename__ = 'users_servers'
+    
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tun_id: Mapped[str]  = mapped_column(String(50), nullable=False)
+    server_id: Mapped[int] = mapped_column(ForeignKey('servers.id', ondelete='CASCADE'), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+
+
+

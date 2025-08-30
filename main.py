@@ -6,9 +6,9 @@ import os
 from datetime import datetime, timedelta
 from urllib.parse import quote
 from dateutil.relativedelta import relativedelta
-
+import base64
 from fastapi import FastAPI, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -173,6 +173,39 @@ async def choose_server(
     return f'OK{InvId}'
 
 
+@app.get("/subscription/{user_token}", response_class=PlainTextResponse)
+async def generate_subscription_config(user_token: str):
+    servers = await get_user_servers_from_db(user_token)
+    if not servers:
+        raise HTTPException(status_code=404, detail="User not found or no servers available")
+
+    subscription_headers = [
+        f"#profile-title: base64:{base64.b64encode('⚡️ SkynetVPN'.encode()).decode()}",
+        "#profile-update-interval: 24",
+        "#subscription-userinfo: expire=2546249531", 
+        "#support-url: https://t.me/skynetaivpn_support",
+        "#profile-web-page-url: https://t.me/skynetaivpn_bot"
+    ]
+
+    # 3. Генерируем vless:// ссылки для каждого сервера
+    config_lines = []
+    for server in servers:
+        server_info = await orm_get_server(async_session, server.server_id)
+        cookies = await auth(server_info.server_url, server_info.login, server_info.password)
+        data = await get_client(cookies, server_info.server_url, new_vpn_user['id'], server.indoub_id)
+        client_data = data['response']
+        settings = data['settings']
+ 
+        vless_url = f'vless://{new_vpn_user["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
+        config_lines.append(vless_url)
+
+    # 4. Объединяем заголовки и конфиги серверов в одну строку
+    subscription_content = "\n".join(subscription_headers) + "\n" + "\n".join(config_lines)
+
+    # 5. Возвращаем сгенерированный контент как текст.
+    # FastAPI сделает это благодаря response_class=PlainTextResponse.
+    return subscription_content
+
 
 @app.get("/continue_sub")
 async def continue_sub(request: Request):
@@ -225,5 +258,5 @@ if __name__ == "__main__":
         format=u'%(filename)s:%(lineno)d #%(levelname)-8s [%(asctime)s] - %(name)s - %(message)s',
     )
 
-    uvicorn.run(app, host="0.0.0.0", port=443)
+    uvicorn.run(app, host="http://localhost", port=443)
 

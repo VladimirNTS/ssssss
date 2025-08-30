@@ -4,8 +4,15 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database.models import Tariff, User, Admin, FAQ, Payments, Server
-
+from database.models import (
+    Tariff, 
+    User, 
+    Admin, 
+    FAQ, 
+    Payments, 
+    Server,
+    UserServer,
+)
 
 # Tariffs
 async def orm_get_tariffs(session: AsyncSession):
@@ -74,15 +81,40 @@ async def orm_add_user(
         await session.commit()
 
 
-async def orm_change_user_status(session: AsyncSession, user_id, new_status, sub_end, tun_id):
+async def orm_change_user_status(session: AsyncSession, user_id, new_status, sub_end, tun_ids: dict):
     
     query = update(User).where(User.id == user_id).values(
             status=new_status,
             sub_end=sub_end,
-            tun_id=tun_id
         )
+
     await session.execute(query)
+    
+    query = select(UserServer).where(UserServer.user_id == user_id)
+    servers_list = await session.execute(query).scalars().all()
+    
+    if not servers_list:
+        for server_id, tun_id in tun_ids.items():
+            await orm_add_user_server(session, user_id, server_id, tun_id)
+
     await session.commit()
+
+
+async def orm_add_user_server(session, user_id, server_id, tun_id):
+    obj = UserServer(
+        server_id=server_id,
+        user_id=user_id,
+        tun_id=tun_id,
+    )
+    session.add(obj)
+    await session.commit()
+
+
+async def orm_get_user_servers(session, user_id):
+    query = select(UserServer).where(UserServer.user_id == user_id)
+    result = await session.execute(query)
+
+    return result.scalars().all()
 
 
 async def orm_change_user_server(session: AsyncSession, user_id, server):
@@ -92,6 +124,9 @@ async def orm_change_user_server(session: AsyncSession, user_id, server):
         )
     await session.execute(query)
     await session.commit()
+
+
+
 
 
 async def orm_get_users(session: AsyncSession):
