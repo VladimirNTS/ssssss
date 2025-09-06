@@ -27,7 +27,8 @@ from database.queries import (
     orm_add_server,
     orm_edit_server,
     orm_end_payment,
-    orm_get_payment
+    orm_get_payment,
+    orm_get_user_servers,
 )
 from skynetapi.skynetapi import auth, add_customer, edit_customer_date, get_client, delete_customer
 
@@ -39,9 +40,9 @@ user_private_router.message.filter(BlockedUsersFilter())
 async def start(message, session):
     args = message.text.split()[1:]
     if args:
-        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=args)
+        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.username or message.from_user.first_name, invited_by=args[0])
     else:
-        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.full_name+str(uuid.uuid4()).split('-')[0], invited_by=None)
+        await orm_add_user(session=session, user_id=message.from_user.id, name=message.from_user.username or message.from_user.first_name, invited_by=None)
 
     await message.answer_photo(
         photo=types.FSInputFile("img/banner.png"),
@@ -264,22 +265,14 @@ async def other_products(callback: types.CallbackQuery, session):
 async def check_subscription(callback: types.CallbackQuery, session): 
     user_id = callback.from_user.id
     user = await orm_get_user(session, user_id)
-    
+    user_servers = await orm_get_user_servers(session, user.id)
     if user.status > 0:
     
         tariff = await orm_get_tariff(session, user.status)
         with open('log.txt', 'w') as f:
             f.write(str(user.server) + " " + str(user.name))
-        server = await orm_get_server(session, user.server)
     
-        cookies = await auth(server.server_url, server.login, server.password)
-        data = await get_client(cookies, server.server_url, user.tun_id, server.indoub_id)
-        client_data = data['response']
-        settings = data['settings']
-    
-        domain = server.server_url.split('://')[-1].split('/')[0]
-
-        url = f"{os.getenv('PAY_PAGE_URL')}get_congigs?user_id={callback.from_user.id}"
+        url = f"{os.getenv('PAY_PAGE_URL')}/subscription?user_token={callback.from_user.id}"
         
         try:
             time_text = 'месяц'
@@ -289,29 +282,23 @@ async def check_subscription(callback: types.CallbackQuery, session):
                 time_text = 'месяцев'
 
             await callback.message.edit_caption(
-                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> \n├ Цена <b>{tariff.price} ₽ за {tariff.sub_time} {time_text}</b> \n└ <b>Выбран сервер</b>: <b>{server.name}</b> \n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать:\n <code>{url}</code>",
+                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> \n└ Цена <b>{tariff.price} ₽ за {tariff.sub_time} {time_text}</b>\n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать:\n <code>{url}</code>",
                 reply_markup=get_inlineMix_btns(btns={"🛜 Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', '🚫 Отменить подписку': 'cancelsub_{user_id}', "⬅ Назад": "back_menu"}, sizes=(1,))
             )
         except TelegramBadRequest as e:
             if "message is not modified" in str(e):
                 return
             raise
-    elif user.tun_id:
+    elif user_servers:
         tariff = await orm_get_tariff(session, user.status)
         with open('log.txt', 'w') as f:
             f.write(str(user.server) + " " + str(user.name))
-        server = await orm_get_server(session, user.server)
-    
-        cookies = await auth(server.server_url, server.login, server.password)
-        data = await get_client(cookies, server.server_url, user.tun_id, server.indoub_id)
-        client_data = data['response']
-        settings = data['settings']
-        
-        url = f"{os.getenv('PAY_PAGE_URL')}get_congigs?user_id={callback.from_user.id}"
+
+        url = f"{os.getenv('PAY_PAGE_URL')}/subscription?user_token={callback.from_user.id}"
         
         try:
             await callback.message.edit_caption(
-                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n├ оплачено до <b>{user.sub_end.date()}</b> \n└ <b>Выбран сервер</b>: <b>{server.name}</b> \n\n<b>⚠️ Ваша подписка отменена и больше не будет автоматически продлеваться.</b>\n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать: \n<code>{url}</code>",
+                caption=f"<b>⚙️ Ваша подписка SkynetVPN</b>: \n└ оплачено до <b>{user.sub_end.date()}</b>\n\n<b>⚠️ Ваша подписка отменена и больше не будет автоматически продлеваться.</b>\n\nВаша ссылка для подключения, нажмите 1 раз чтобы скопировать: \n<code>{url}</code>",
                 reply_markup=get_inlineMix_btns(btns={"🛜 Подключиться v2rayRun": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}', "Продлить подписку": "choosesubscribe", "⬅ Назад": "back_menu"}, sizes=(1,))
             )
         except TelegramBadRequest as e:
@@ -409,8 +396,9 @@ async def install_helper(callback: types.CallbackQuery, session):
 @user_private_router.callback_query(F.data == 'install_mes')
 async def install_helper(callback: types.CallbackQuery, session):
     try:
-        await callback.message.edit_caption(
-            caption="<b>Выберите своё устройство</b>: \n\nСделали пошаговые инструкции для подключения VPN! Нажмите на нужную кнопку и подключайтесь за несколько минут.",
+        await callback.message.answer_photo(
+            photo=types.FSInputFile("img/banner.png"),
+            text="<b>Выберите своё устройство</b>: \n\nСделали пошаговые инструкции для подключения VPN! Нажмите на нужную кнопку и подключайтесь за несколько минут.",
             reply_markup=get_callback_btns(btns={'📱 Android': 'help_android', '🍏 Iphone': 'help_iphone', '🖥 Windows': 'help_windows', '💻 MacOS': 'help_macos', '🐧 Linux': 'help_linux', '📺 AndroidTV': 'help_androidtv', "⬅ Назад": "back_menu"}, sizes=(2,2,2,1))
         )
     except TelegramBadRequest as e:
@@ -439,7 +427,7 @@ async def install(callback):
                     media=types.FSInputFile("img/instruction_windows_1.jpg"), 
                     caption=text[callback.data.split('_')[-1]].split('|||')[0],
                     reply_markup=get_inlineMix_btns(
-                        btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "back_menu"},
+                        btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "install"},
                         sizes=(1,)
                     )
                 ),
@@ -457,7 +445,7 @@ async def install(callback):
         await callback.message.edit_caption(
             caption=text[callback.data.split('_')[-1]].split('|||')[0],
             reply_markup=get_inlineMix_btns(
-                btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "back_menu"},
+                btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "install"},
                 sizes=(1,)
             )
         )
@@ -473,7 +461,6 @@ async def install(callback):
 @user_private_router.callback_query(F.data.startswith('chooseserver_'))
 async def create_subscription(callback: types.CallbackQuery, session, bot):
     payment = await orm_get_payment(session, callback.data.split('_')[-1])
-    await orm_change_user_server(session, payment.user_id, int(callback.data.split('_')[1]))
     if payment.paid:
         print('Ошибка: оплата уже совершена')
         return
@@ -486,40 +473,54 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
         current_date = datetime.now()
         new_date = current_date + relativedelta(months=tariff.sub_time)
 
-        cookies = await auth(server.server_url, server.login, server.password)
-        print(cookies)
-        await orm_end_payment(session, payment.id) 
         tun_ids = {}
-        user_servers = orm_get_user_servers(session, user.id)
-
+        user_servers = await orm_get_user_servers(session, user.id)
         if not user_servers:
             for server in servers:
+                cookies = await auth(server.server_url, server.login, server.password)
+                
                 new_vpn_user = await add_customer(
             	    server.server_url,
                 	server.indoub_id,
                 	cookies, 
                 	server.name + '_' + str(user.id),
-                	(new_date.timestamp() * 1000),
+                	int(new_date.timestamp() * 1000),
             	    tariff.devices,
                    	user.user_id,
                 	callback.from_user.username or user.name
                 )
-                tun_ids[str(server.id)] = new_vpn_user[id]
+                with open("log.txt", "w") as f:
+                    f.write(str(new_vpn_user['response']))
+                tun_ids[str(server.id)] = new_vpn_user['id']
+
+            if new_vpn_user:
+                await orm_end_payment(session, payment.id) 
 
             await orm_change_user_status(session, user.id, tariff.id, new_date, tun_ids)
         
         elif user_servers:
-            new_vpn_user = {'id': user.tun_id}
             new_date = user.sub_end + relativedelta(months=tariff.sub_time)
-            date = new_date['expire_time'] / 1000
+            date = int(new_date.timestamp() / 1000)
 
-            await edit_customer_date(server, cookies, date, user.tun_id, session)
+            for user_server in user_servers:
+                server = await orm_get_server(session, user_server.server_id)
+                cookies = await auth(server.server_url, server.login, server.password)
+                
+                new_vpn_user = await get_client(
+                	cookies, 
+            	    server.server_url,
+                   	user_server.tun_id,
+                	server.indoub_id,
+                )
+                new_vpn_user = new_vpn_user['response']
+                tun_ids[str(server.id)] = new_vpn_user['id']
+                await edit_customer_date(server, cookies, date, user_server.tun_id, session)
 
-            await check_subscription(callback, session)
-            date = datetime.fromtimestamp(date)
+            if new_vpn_user:
+                await orm_end_payment(session, payment.id) 
 
-            await orm_change_user_status(session, user_id=user.id, new_status=tariff.id, tun_id=str(user.tun_id), sub_end=date)
-
+            await orm_change_user_status(session, user.id, tariff.id, new_date, tun_ids)
+ 
         data = await get_client(cookies, server.server_url, new_vpn_user['id'], server.indoub_id)
         client_data = data['response']
         settings = data['settings']
@@ -527,11 +528,11 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
         await callback.message.delete()
         user = await orm_get_user_by_id(session, payment.user_id)
 
-        url = f"{os.getenv('PAY_PAGE_URL')}get_congigs?user_id={callback.from_user.id}"
+        url = f"{os.getenv('PAY_PAGE_URL')}/subscription?user_token={callback.from_user.id}"
 
         await bot.send_message(
             user.user_id, 
-            f'<b>✅Подписка оформлена!</b>\n\n🗓 Ваша подписка активна до {user.sub_end.date()}\n\n⬇️ Скопируйте ключ доступа. Для копирования ключа нажмите на него 1 раз. ⬇️ \n\n<b>Ваш ключ доступа</b> <code>{url}</code>\n\n Для подключения можете воспользоваться кнопкой ниже⬇️', 
+            f'<b>✅ Спасибо! Вы оформили подписку!</b>\n\n🗓 Ваша подписка активна до {user.sub_end.date().strftime("%d.%m.%Y")}\n\nСкопируйте ключ доступа. Для копирования ключа нажмите на него 1 раз. ⬇️ \n\n<b>Ваш ключ доступа:</b> \n<code>{url}</code>\n\nДля подключения можете воспользоваться кнопкой ниже ⬇️', 
             reply_markup=get_inlineMix_btns(
                 btns={ 
                     "↗️ Подключиться": f'{os.getenv("PAY_PAGE_URL")}/config?user_id={user.id}',
@@ -552,9 +553,17 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
             elif tariff.sub_time == 12:
                 days = 45
 
-            sub_end = user.sub_end + relativedelta(days=days)
+            sub_end = from_user.sub_end + relativedelta(days=days)
+            servers = await orm_get_user_servers(sesssion, from_user.id) 
 
-            await orm_change_user_status(session, from_user.id, from_user.status, sub_end, from_user.tun_id)
+
+            for i in servers:
+                server = await orm_get_server(session, i.server_id)
+                cookies = await auth(server.server_url, server.login, server.password)
+
+                await edit_customer_date(server, cookies, sub_end, i.tun_id, session)
+
+            await orm_change_user_status(session, from_user.id, from_user.status, sub_end)
 
             await bot.send_message(
                 from_user.user_id, 

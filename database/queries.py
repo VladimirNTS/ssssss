@@ -81,7 +81,7 @@ async def orm_add_user(
         await session.commit()
 
 
-async def orm_change_user_status(session: AsyncSession, user_id, new_status, sub_end, tun_ids: dict):
+async def orm_change_user_status(session: AsyncSession, user_id, new_status, sub_end, tun_ids = None):
     
     query = update(User).where(User.id == user_id).values(
             status=new_status,
@@ -91,9 +91,10 @@ async def orm_change_user_status(session: AsyncSession, user_id, new_status, sub
     await session.execute(query)
     
     query = select(UserServer).where(UserServer.user_id == user_id)
-    servers_list = await session.execute(query).scalars().all()
+    servers_list = await session.execute(query)
+    servers_list = servers_list.scalars().all()
     
-    if not servers_list:
+    if not servers_list and tun_ids:
         for server_id, tun_id in tun_ids.items():
             await orm_add_user_server(session, user_id, server_id, tun_id)
 

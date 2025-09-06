@@ -1,0 +1,1 @@
+{'id': 1, 'settings': '{"clients": [{"id": "068862ec-26b0-4ba6-a3ed-46b0adea3aa3", "flow": "xtls-rprx-vision", "email": "\\ud83c\\uddfa\\ud83c\\uddf8 \\u0421\\u0428\\u0410 \\ud83c\\udfa7_3", "limitIp": 3, "totalGB": 0, "expiryTime": 1772598988425, "enable": true, "comment": "artur_kabulaev", "subId": "", "reset": 0}]}'}

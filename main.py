@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 from dateutil.relativedelta import relativedelta
 import base64
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -35,6 +35,8 @@ from database.queries import (
     orm_get_payment,
     orm_get_server,
     orm_get_servers,
+    orm_get_user_servers,
+    orm_get_user,
 )
 from skynetapi.skynetapi import auth, get_client, add_customer, edit_customer_date
 from kbds.inline import get_inlineMix_btns
@@ -156,16 +158,12 @@ async def choose_server(
     tariff = await orm_get_tariff(async_session, payment.tariff_id)
     
     btns = {}
-    servers = await orm_get_servers(async_session)
-
-    for i in servers:
-        btns[i.name] = f'chooseserver_{i.id}_{InvId}'
     
     await bot.send_message(
         user.user_id,
-        text="<b>Вы купили подписку на Skynet VPN\n\nВыберите сервер:</b>\n\n👑 - без рекламы на YouTube\n🎧 - YouTube можно сворачивать",
+        text="<b>Вы купили подписку на Skynet VPN</b>",
         reply_markup=get_inlineMix_btns(
-            btns=btns,
+            btns={'Получить ключи': f'chooseserver_{InvId}'},
             sizes=(1,)
         )
     )
@@ -173,18 +171,21 @@ async def choose_server(
     return f'OK{InvId}'
 
 
-@app.get("/subscription/{user_token}", response_class=PlainTextResponse)
+@app.get("/subscription")
 async def generate_subscription_config(user_token: str):
-    servers = await get_user_servers_from_db(user_token)
+    async_session = await get_session(session_pool=session)
+
+    user = await orm_get_user(async_session, user_token)
+    servers = await orm_get_user_servers(async_session, user.id)
     if not servers:
         raise HTTPException(status_code=404, detail="User not found or no servers available")
 
     subscription_headers = [
         f"#profile-title: base64:{base64.b64encode('⚡️ SkynetVPN'.encode()).decode()}",
         "#profile-update-interval: 24",
-        "#subscription-userinfo: expire=2546249531", 
+        f"#subscription-userinfo: expire={int(user.sub_end.timestamp())}", 
         "#support-url: https://t.me/skynetaivpn_support",
-        "#profile-web-page-url: https://t.me/skynetaivpn_bot"
+        "#profile-web-page-url: https://t.me/skynetaivpn_bot",
     ]
 
     # 3. Генерируем vless:// ссылки для каждого сервера
@@ -192,11 +193,11 @@ async def generate_subscription_config(user_token: str):
     for server in servers:
         server_info = await orm_get_server(async_session, server.server_id)
         cookies = await auth(server_info.server_url, server_info.login, server_info.password)
-        data = await get_client(cookies, server_info.server_url, new_vpn_user['id'], server.indoub_id)
+        data = await get_client(cookies, server_info.server_url, server.tun_id, server_info.indoub_id)
         client_data = data['response']
         settings = data['settings']
  
-        vless_url = f'vless://{new_vpn_user["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
+        vless_url = f'vless://{server.tun_id}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#{quote(client_data["email"].split("_")[0])}'
         config_lines.append(vless_url)
 
     # 4. Объединяем заголовки и конфиги серверов в одну строку
@@ -204,7 +205,16 @@ async def generate_subscription_config(user_token: str):
 
     # 5. Возвращаем сгенерированный контент как текст.
     # FastAPI сделает это благодаря response_class=PlainTextResponse.
-    return subscription_content
+    
+    response = Response(
+        content=subscription_content,
+        media_type="text/plain; charset=utf-8"
+    )
+
+    response.headers["Profile-Web-Page-Url"] = "https://t.me/skynetaivpn_bot"
+    response.headers["Support-Url"] = "https://t.me/skynetaivpn_bot"
+
+    return response
 
 
 @app.get("/continue_sub")
@@ -234,20 +244,9 @@ async def webhook(request: Request) -> None:
 async def redirect_to_new_url(user_id: int):
     async_session = await get_session(session_pool=session)
     user = await orm_get_user_by_id(async_session, user_id=user_id)
-    print(bool(user))
-    server = await orm_get_server(async_session, user.server)
-    cookies = await auth(server.server_url, server.login, server.password)
-    data = await get_client(cookies, server.server_url, user.tun_id, server.indoub_id)
-    client_data = data['response']
-    settings = data['settings']
-    
-    domain = server.server_url.split('://')[-1].split('/')[0]
-
-    url = f'vless://{client_data["id"]}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#SkynetVPN-{quote(client_data["email"])}'
-        
 
     if user:
-        url = f'v2raytun://import/{url}'
+        url = f'v2raytun://import/{os.getenv("PAY_PAGE_URL")}/subscription?user_token={user.user_id}'
         return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
 
 
@@ -258,5 +257,5 @@ if __name__ == "__main__":
         format=u'%(filename)s:%(lineno)d #%(levelname)-8s [%(asctime)s] - %(name)s - %(message)s',
     )
 
-    uvicorn.run(app, host="http://localhost", port=443)
+    uvicorn.run(app, host="0.0.0.0", port=443)
 

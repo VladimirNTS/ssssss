@@ -60,8 +60,6 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
     
     settings_str = json.dumps(settings_obj)
     print(settings_str)
-    with open('log.txt', 'w') as f:
-        f.write(settings_str)
     data = {
         'id': int(indoub_id),
         'settings': settings_str
@@ -74,6 +72,8 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
             text = await response.text()
             
             print('Ответ:', response, text)
+            with open('log.txt', 'w') as f:
+                f.write(str(response) + str(text))
 
             return {
                 "response": text,
@@ -84,21 +84,40 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
             }
 
 
-async def edit_customer_date(server, cookies, expire_time, id, session):
-
-    user = orm_get_user(session, id)
+async def edit_customer_date(server, cookies, expire_time, tun_id, session):
+    client = await get_client(cookies, server.server_url, tun_id, server.indoub_id)
+    client_obj = {
+        "id": tun_id,
+        "flow": "xtls-rprx-vision",
+        "email": client['response']['email'],
+        "limitIp": client['response']['limitIp'],
+        "totalGB": 0,
+        "expiryTime": int(expire_time),
+        "enable": True,
+        "comment": client['response']['comment'],
+        "subId": client['response'].get('subId', ''),
+        "reset": 0
+    }
+    
+    settings_obj = {
+        "clients": [client_obj]
+    }
+    
+    settings_str = json.dumps(settings_obj)
+    print(settings_str)
 
     data = {
         'id': server.indoub_id,
-        'settings': '{"clients": [{\n"expiryTime": %s}]}' % (expire_time),
+        'settings': settings_str,
     }
 
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            server.server_url + f'panel/api/inbounds/updateClient/{user.tun_id}',
+            server.server_url + f'panel/api/inbounds/updateClient/{tun_id}',
             data=data,
         ) as response:
-            print(response.json())
+            with open('log.txt', 'w') as f:
+                f.write(str(int(expire_time)))
             text = await response.text()
             return {
                 "response": text,
@@ -107,21 +126,64 @@ async def edit_customer_date(server, cookies, expire_time, id, session):
             }
 
 
-async def get_client(cookies, server, user_id, inbound):
+
+async def edit_customer_limit_ip(server, cookies, limit_ip, id, session, tun_id):
+    client = await get_client(cookies, server.server_url, tun_id, server.indoub_id)
+    
+    with open('log.txt', 'w') as f:
+        f.write(str(client))
+    
+    client_obj = {
+        "id": tun_id,
+        "flow": "xtls-rprx-vision",
+        "email": client['response']['email'],
+        "limitIp": int(limit_ip),
+        "totalGB": 0,
+        "expiryTime": client['response']['expiryTime'],
+        "enable": True,
+        "comment": client['response']['comment'],
+        "subId": client['response'].get('subId', ''),
+        "reset": 0
+    }
+    
+    settings_obj = {
+        "clients": [client_obj]
+    }
+    
+    settings_str = json.dumps(settings_obj)
+    print(settings_str)
+
+    data = {
+        'id': server.indoub_id,
+        'settings': settings_str,
+    }
+
+    async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
+        async with session.post(
+            server.server_url + f'panel/api/inbounds/updateClient/{tun_id}',
+            data=data,
+        ) as response:
+            print(response.json())
+            text = await response.text()
+            return {
+                "response": text,
+                "id": id,
+            }
+
+
+async def get_client(cookies, server, tun_id, inbound):
     
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.get(
             server + f'panel/api/inbounds/get/{inbound}',
         ) as response:
             json_resp = await response.json()
-            with open('log.txt', 'w') as f:
-                f.write(str(json_resp['obj']))
             clients = json.loads(json_resp['obj']['settings'])['clients']
             pbi = json.loads(json_resp['obj']['streamSettings'])['realitySettings']
             short_id = json.loads(json_resp['obj']['streamSettings'])['realitySettings']['shortIds'][0]
-
+            
             for client in clients:
-                if client['id'] == user_id:
+                if client['id'] == tun_id:
                     return {
                         "response": client,
                         "settings": pbi,

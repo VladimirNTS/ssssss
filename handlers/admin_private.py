@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from aiogram import Router, types, F
 from aiogram.filters import Command, StateFilter, or_f
 from aiogram.fsm.state import State, StatesGroup
@@ -5,13 +7,16 @@ from aiogram.fsm.context import FSMContext
 
 from kbds.inline import get_callback_btns
 from filters.users_filter import OwnerFilter
+from skynetapi.skynetapi import edit_customer_date, auth, get_client, edit_customer_limit_ip
 from database.queries import (
+    orm_get_user_by_id,
     orm_get_users,
     orm_get_subscribers,
     orm_block_user,
     orm_get_tariffs,
     orm_add_tariff,
     orm_delete_tariff,
+    orm_get_tariff,
     orm_edit_tariff,
     orm_add_faq,
     orm_get_faq,
@@ -20,7 +25,10 @@ from database.queries import (
     orm_unblock_user,
     orm_add_server,
     orm_edit_server,
-    orm_get_servers
+    orm_get_servers,
+    orm_get_server,
+    orm_get_user_servers,
+    orm_change_user_status,
 )
 
 admin_private_router = Router()
@@ -31,22 +39,22 @@ admin_private_router.message.filter(OwnerFilter())
 @admin_private_router.callback_query(F.data == "admin")
 async def start(callback):
         await callback.message.answer("Здраствуйте, чем займемся сегодня?", reply_markup=get_callback_btns(btns={
-        '📃 Упарвление тарифами': 'tariffs_list',
+        '📃 Управление тарифами': 'tariffs_list',
         '📃 Список заказов': 'orders_list',
         '📫 Рассылка': 'send',
         '⚙ Редактировать FAQ': 'edit_faq',
-        '⚙ Управления серверами': 'servers_list'
+        '⚙ Управление серверами': 'servers_list'
     }, sizes=(2,2,1)))
 
 
 @admin_private_router.message(Command("admin"))
 async def start(message: types.Message):
 	await message.answer("Здраствуйте, чем займемся сегодня?", reply_markup=get_callback_btns(btns={
-        '📃 Упарвление тарифами': 'tariffs_list',
+        '📃 Управление тарифами': 'tariffs_list',
         '📃 Список заказов': 'orders_list',
         '📫 Рассылка': 'send',
         '⚙ Редактировать FAQ': 'edit_faq',
-        '⚙ Управления серверами': 'servers_list'
+        '⚙ Управление серверами': 'servers_list'
     }, sizes=(2,2,1)))
 	
 
@@ -60,7 +68,7 @@ async def choose_category(callback_query: types.CallbackQuery, session):
 
     for tariff in tariff_list:
         await callback_query.message.answer(
-            text=f"<b>Срок:</b> {tariff.sub_time} месяцев\n<b>Цена:</b> {tariff.price}\n<b>Количествоо устройств:</b> {tariff.devices}\n<b>Тип: {'повторяющийся платеж' if tariff.recuring else 'единоразовый платеж'}</b>", 
+            text=f"<b>Срок:</b> {tariff.sub_time} месяцев\n<b>Цена:</b> {tariff.price}\n<b>Количество устройств:</b> {tariff.devices}\n<b>Тип: {'повторяющийся платеж' if tariff.recuring else 'единоразовый платеж'}</b>", 
             reply_markup=get_callback_btns(btns={'Изменить': f'edittariff_{tariff.id}', 'Удалить': f'deletetariff_{tariff.id}'})
         )
     
@@ -484,26 +492,108 @@ async def orders_list(callback: types.CallbackQuery, session):
     message_text = ""
     orders = await orm_get_users(session)
     for order in orders:
+        tariff = await orm_get_tariff(session, order.status)
+        servers = await orm_get_user_servers(session, order.id)
         if order.status > 0:
-            message_text = f"<b>ID:</b> {order.user_id}\n<b>Имя:</b> {order.name}\n<b>Тариф:</b> {order.status}\n"
+            server = await orm_get_server(session, servers[0].server_id)
+            cookies = await auth(server.server_url, server.login, server.password)
+            with open('log.txt', 'w') as f:
+                f.write(str(servers[0].tun_id))
+ 
+            client = await get_client(cookies, server.server_url, servers[0].tun_id, server.indoub_id)
+            message_text = f"<b>ID:</b> {order.user_id}\n<b>Имя:</b> {order.name}\n<b>Тариф:</b> {tariff.price} за {tariff.sub_time} мес.\nДата окончания: {order.sub_end.strftime('%d.%m.%Y')}\nКоличество устройств: {client['response']['limitIp']}"
     
-
-        if message_text:
             await callback.message.answer(
                 text=message_text,
-                reply_markup=get_callback_btns(btns={'Заблокировать пользователя': f'blockuser_{order.user_id}'})
-            )
+                reply_markup=get_callback_btns(
+                    btns={
+                        'Заблокировать пользователя': f'blockuser_{order.user_id}',
+                        'Изменить дату окончания': f"renew_{order.id}",
+                        'Изменить количество устройств': f"redevice_{order.id}",
+                    }, sizes=[1,])
+                )
 
     if orders:
         await callback.message.answer(
-                text="Вот список заказов ⬆",
+                text=f"Вот список заказов ⬆ \n\nВсего подписчиков: {len(orders)}",
             )
     else:
         await callback.message.answer(
-                text="Заказов пока нет",
+                text=f"Заказов пока нет\n\nВсего подписчиков: {len(orders)}",
             )
 
 
+class FSMRenew(StatesGroup):
+    days = State()
+
+@admin_private_router.callback_query(StateFilter(None), F.data.startswith('renew_'))
+async def renew_sub(callback, state):
+    await state.update_data(user_id=callback.data.split())
+    await callback.message.answer("Введите новую дату в формате дд.мм.гггг:")
+    await state.set_state(FSMRenew.days)
+
+
+@admin_private_router.message(FSMRenew.days)
+async def days(message, session, state):
+    data = await state.get_data()
+    now = datetime.now()
+    user_id = data['user_id'][0].split('_')[-1]
+    date = message.text.split('.')
+    if len(date) != 3:
+        await message.answer("Неверный формат. Введите новую дату в формате дд.мм.гггг:")
+        return
+    
+    user = await orm_get_user_by_id(session, user_id)
+    servers = await orm_get_user_servers(session, user.id)
+    
+    new_date = datetime(int(date[2]), int(date[1]), int(date[0]), now.hour, now.minute, now.second, now.microsecond)
+    new_unix_date = int(new_date.timestamp() * 1000) 
+    print(new_date, new_unix_date)
+    for server in servers:
+        server_info = await orm_get_server(session, server.server_id)
+        cookies = await auth(server_info.server_url, server_info.login, server_info.password)
+        await edit_customer_date(server_info, cookies, new_unix_date, server.tun_id, session)
+    
+    await orm_change_user_status(session, user_id, user.status, new_date)
+    
+    await message.answer("✅ Дата изменена")
+    await state.clear()
+
+
+class FSMDevice(StatesGroup):
+    devices = State()
+
+@admin_private_router.callback_query(StateFilter(None), F.data.startswith('redevice_'))
+async def renew_sub(callback, state):
+    await state.update_data(user_id=callback.data.split())
+    await callback.message.answer("Введите новое количество устройств")
+    await state.set_state(FSMDevice.devices)
+
+
+@admin_private_router.message(FSMDevice.devices)
+async def days(message, session, state):
+    data = await state.get_data()
+    user_id = data['user_id'][0].split('_')[-1]
+    try:
+        date = int(message.text)
+        user = await orm_get_user_by_id(session, user_id)
+        servers = await orm_get_user_servers(session, user.id)
+        
+        for server in servers:
+            server_info = await orm_get_server(session, server.server_id)
+            cookies = await auth(server_info.server_url, server_info.login, server_info.password)
+            cust = await edit_customer_limit_ip(server_info, cookies, date, user.user_id, session, server.tun_id)
+            print(cust)
+    
+        await message.answer("✅ Количество устройств изменено.")
+        await state.clear()
+
+
+    except:
+        await message.answer("Неверный формат. Введите новое количество устройств")
+        return
+    
+    
 
 # заблокировать пользователя
 @admin_private_router.callback_query(StateFilter(None), F.data.startswith('blockuser_'))
@@ -631,7 +721,12 @@ async def add_product(message: types.Message, state: FSMContext, session):
     data = await state.get_data()
     await orm_add_server(session=session, data=data)
     await state.clear()
-    
+
+
+async def add_users_to_new_server(session, server_id):
+    new_server = await orm_get_server(session, server_id)
+    users = await orm_get_users(session)
+
 
 
 # Удаление сервера из базы
@@ -650,7 +745,6 @@ class FSMEditServer(StatesGroup):
     password = State()
     indoub_id = State()
 
-# Undo text for add tariff FSM
 FSMAddTariff_undo_text = {
     'FSMEditServer:name': 'Введите имя сервера заново',
     'FSMEditServer:url': 'Введите url на админ панель сервера заново',
@@ -659,7 +753,6 @@ FSMAddTariff_undo_text = {
 }
 
 
-# Back handler for FSMAddTariff
 @admin_private_router.message(StateFilter('FSMEditServer'), F.text.in_({'/назад', 'назад'}))
 async def back_step_add_tariff(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
@@ -680,27 +773,27 @@ async def back_step_add_tariff(message: types.Message, state: FSMContext):
 async def add_product_description(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(server_id=callback.data.split('_')[-1])
     
-    await callback.message.answer('Введите имя сервера (оно будет отображаться пользователя при выборе сервера):')
+    await callback.message.answer('Введите имя сервера (оно будет отображаться пользователя при выборе сервера) (или . чтобы пропустить):')
     await state.set_state(FSMEditServer.name)
 
 
 @admin_private_router.message(FSMEditServer.name)
 async def add_product_description(message, state: FSMContext):
     if message.text == '.':
-        await state.update_data(password=None)
+        await state.update_data(name=None)
     else:
         await state.update_data(name=message.text)
-    await message.answer('Введите url на админ панель сервера:')
+    await message.answer('Введите url на админ панель сервера (или . чтобы пропустить):')
     await state.set_state(FSMEditServer.url)
 
 
 @admin_private_router.message(FSMEditServer.url)
 async def add_product_description(message: types.Message, state: FSMContext):
     if message.text == '.':
-        await state.update_data(password=None)
+        await state.update_data(server_url=None)
     else:
-        await state.update_data(url=message.text)
-    await message.answer('Введите id индауба:')
+        await state.update_data(server_url=message.text)
+    await message.answer('Введите id индауба (или . чтобы пропустить):')
     
     await state.set_state(FSMEditServer.indoub_id)
     
@@ -712,7 +805,7 @@ async def add_product_description(message: types.Message, state: FSMContext):
             await state.update_data(password=None)
         else:
             await state.update_data(indoub_id=int(message.text))
-        await message.answer('Введите логин админ панели сервера:')
+        await message.answer('Введите логин админ панели сервера (или . чтобы пропустить):')
     
         await state.set_state(FSMEditServer.login)
     except:
@@ -725,7 +818,7 @@ async def add_product_description(message: types.Message, state: FSMContext):
         await state.update_data(password=None)
     else:
         await state.update_data(login=message.text)
-    await message.answer('Введите пароль админ панели сервера:')
+    await message.answer('Введите пароль админ панели сервера (или . чтобы пропустить):')
 
     await state.set_state(FSMEditServer.password)
 
