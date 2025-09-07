@@ -7,7 +7,13 @@ from aiogram.fsm.context import FSMContext
 
 from kbds.inline import get_callback_btns
 from filters.users_filter import OwnerFilter
-from skynetapi.skynetapi import edit_customer_date, auth, get_client, edit_customer_limit_ip
+from skynetapi.skynetapi import (
+    edit_customer_date, 
+    auth, 
+    get_client, 
+    edit_customer_limit_ip, 
+    add_customer,
+)
 from database.queries import (
     orm_get_user_by_id,
     orm_get_users,
@@ -28,6 +34,7 @@ from database.queries import (
     orm_get_servers,
     orm_get_server,
     orm_get_user_servers,
+    orm_add_user_server,
     orm_change_user_status,
 )
 
@@ -726,6 +733,24 @@ async def add_product(message: types.Message, state: FSMContext, session):
 async def add_users_to_new_server(session, server_id):
     new_server = await orm_get_server(session, server_id)
     users = await orm_get_users(session)
+
+    for i in users:
+        cookies = await auth(new_server.server_url, new_server.login, new_server.password)
+        expire_time = i.sub_end.timestamp() * 1000
+        tariff = await orm_get_tariff(session, i.status)
+
+        await add_customer(
+            new_server.server_url,
+            new_server.indoub_id,
+            cookies,
+            new_server.name + f"_{i.id}",
+            expire_time,
+            tariff.devices,
+            i.user_id,
+            i.name,
+        )
+
+        await orm_add_user_server(session, i.id, server_id, )
 
 
 
