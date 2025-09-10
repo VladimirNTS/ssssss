@@ -31,6 +31,7 @@ from database.queries import (
     orm_unblock_user,
     orm_add_server,
     orm_edit_server,
+    orm_delete_server,
     orm_get_servers,
     orm_get_server,
     orm_get_user_servers,
@@ -726,7 +727,9 @@ async def add_product(message: types.Message, state: FSMContext, session):
     await state.update_data(password=message.text)
     await message.answer('✅ Сервер добавлен')
     data = await state.get_data()
-    await orm_add_server(session=session, data=data)
+    server = await orm_add_server(session=session, data=data)
+    await add_users_to_new_server(session, server.id)
+
     await state.clear()
 
 
@@ -735,11 +738,13 @@ async def add_users_to_new_server(session, server_id):
     users = await orm_get_users(session)
 
     for i in users:
+        if i.status == 0:
+            continue
         cookies = await auth(new_server.server_url, new_server.login, new_server.password)
-        expire_time = i.sub_end.timestamp() * 1000
+        expire_time = int(i.sub_end.timestamp() * 1000)
         tariff = await orm_get_tariff(session, i.status)
 
-        await add_customer(
+        new = await add_customer(
             new_server.server_url,
             new_server.indoub_id,
             cookies,
@@ -749,8 +754,7 @@ async def add_users_to_new_server(session, server_id):
             i.user_id,
             i.name,
         )
-
-        await orm_add_user_server(session, i.id, server_id, )
+        await orm_add_user_server(session, i.id, server_id, new['id'])
 
 
 

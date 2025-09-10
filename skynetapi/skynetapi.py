@@ -50,6 +50,7 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
         "totalGB": 0,
         "expiryTime": int(expire_time),
         "enable": True,
+        "subId": uu_id.split('-')[-1],
         "comment": str(username),
         "reset": 0
     }
@@ -58,10 +59,10 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
         "clients": [client_obj]
     }
     
-    settings_str = json.dumps(settings_obj)
+    settings_str = json.dumps(settings_obj, ensure_ascii=False)
     print(settings_str)
     data = {
-        'id': int(indoub_id),
+        'id': str(indoub_id),
         'settings': settings_str
     }
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
@@ -73,7 +74,7 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
             
             print('Ответ:', response, text)
             with open('log.txt', 'w') as f:
-                f.write(str(response) + str(text))
+                f.write(str(data) + str(response) + str(text))
 
             return {
                 "response": text,

@@ -289,12 +289,16 @@ async def orm_add_server(session: AsyncSession, data):
     )
     session.add(obj)
     await session.commit()
+    query = select(Server).where(Server.server_url == data['url'])
+    result = await session.execute(query)
+    return result.scalar()
+
 
 
 async def orm_delete_server(session, id):
     query = delete(Server).where(Server.id == id)
     await session.execute(query)
-    await session.commit
+    await session.commit()
 
 
 async def orm_edit_server(session, id: int, fields: dict):
