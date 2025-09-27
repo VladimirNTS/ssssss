@@ -180,14 +180,6 @@ async def generate_subscription_config(user_token: str):
     if not servers:
         raise HTTPException(status_code=404, detail="User not found or no servers available")
 
-    subscription_headers = [
-        f"#profile-title: base64:{base64.b64encode('⚡️ SkynetVPN'.encode()).decode()}",
-        "#profile-update-interval: 24",
-        f"#subscription-userinfo: expire={int(user.sub_end.timestamp())}", 
-        "#support-url: https://t.me/skynetaivpn_support",
-        "#profile-web-page-url: https://t.me/skynetaivpn_bot",
-    ]
-
     # 3. Генерируем vless:// ссылки для каждого сервера
     config_lines = []
     for server in servers:
@@ -200,19 +192,23 @@ async def generate_subscription_config(user_token: str):
         vless_url = f'vless://{server.tun_id}@{data["ip"]}?type=tcp&security=reality&pbk={settings["settings"]["publicKey"]}&fp=chrome&sni={settings["serverNames"][0]}&sid={data["short_id"]}&spx=%2F&flow=xtls-rprx-vision#{quote(client_data["email"].split("_")[0])}'
         config_lines.append(vless_url)
 
-    # 4. Объединяем заголовки и конфиги серверов в одну строку
-    subscription_content = "\n".join(subscription_headers) + "\n" + "\n".join(config_lines)
+    subscription_content = "\n".join(config_lines)
 
-    # 5. Возвращаем сгенерированный контент как текст.
-    # FastAPI сделает это благодаря response_class=PlainTextResponse.
-    
     response = Response(
         content=subscription_content,
         media_type="text/plain; charset=utf-8"
     )
 
-    response.headers["Profile-Web-Page-Url"] = "https://t.me/skynetaivpn_bot"
-    response.headers["Support-Url"] = "https://t.me/skynetaivpn_bot"
+    response.headers['profile-title'] = "base64:"+base64.b64encode('⚡️ SkynetVPN'.encode('utf-8')).decode('latin-1')
+    response.headers["announce"] = "base64:"+base64.b64encode("🚀 Нажмите сюда, чтобы перейти в нашего бота\n\n⚡️ - быстрые \n👑 - без рекламы на YouTube\n🎧 - YouTube можно сворачивать".encode('utf-8')).decode('latin-1')
+    response.headers["announce-url"] = "https://t.me/skynetaivpn_bot"
+    response.headers["subscription-userinfo"] = f"expire={int(user.sub_end.timestamp())}"
+    response.headers["X-Frame-Options"] = 'SAMEORIGIN'
+    response.headers["Referrer-Policy"] = 'no-referrer-when-downgrade'
+    response.headers["X-Content-Type-Options"] = 'nosniff'
+    response.headers["Permissions-Policy"] = 'geolocation=(), microphone=()'
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+
 
     return response
 

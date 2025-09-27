@@ -46,7 +46,7 @@ admin_private_router.message.filter(OwnerFilter())
 
 @admin_private_router.callback_query(F.data == "admin")
 async def start(callback):
-        await callback.message.answer("Здраствуйте, чем займемся сегодня?", reply_markup=get_callback_btns(btns={
+    await callback.message.answer("Здраствуйте, чем займемся сегодня?", reply_markup=get_callback_btns(btns={
         '📃 Управление тарифами': 'tariffs_list',
         '📃 Список заказов': 'orders_list',
         '📫 Рассылка': 'send',
@@ -133,16 +133,33 @@ async def back_step_add_tariff(message: types.Message, state: FSMContext):
 @admin_private_router.callback_query(StateFilter(None), F.data == "addtariff")
 async def add_product_description(callback: types.CallbackQuery, state: FSMContext):
     
-    await callback.message.answer('Введите время подписки (в месяцах):')
+    await callback.message.answer(
+        'Введите время подписки (в днях) или выберите готовый вариант:',
+        reply_markup=get_callback_btns(
+            btns={'1 месяц': f'month_31', '2 месяца': f'month_61', '3 месяца': f'month_92', '4 месяц': f'month_122', '5 месяц': f'month_153', '6 месяц': f'month_183', '7 месяц': f'month_214', '8 месяц': f'month_244', '9 месяц': f'month_275', '10 месяц': f'month_305', '11 месяц': f'month_336', '12 месяц': f'month_365'},
+            sizes=(1,),
+        )
+    )
     await state.set_state(FSMAddTariff.sub_time)
 
 
-@admin_private_router.message(FSMAddTariff.sub_time)
+@admin_private_router.callback_query(FSMAddTariff.sub_time)
+async def add_name_callback(callback, state):
+    try:
+        await state.update_data(sub_time=int(callback.data.split('_')[-1]))
+    except:
+        await callback.message.answer('Неверный формат. Введите время подписки (в днях) еще раз:')
+        return
+    await callback.message.answer('Введите количество устройств:')
+    await state.set_state(FSMAddTariff.devices)
+
+
+@admin_private_router.message(FSMAddTariff.sub_time, F.text)
 async def add_product_description(message, state: FSMContext):
     try:
         await state.update_data(sub_time=int(message.text))
     except:
-         await message.answer('Неверный формат. Введите время подписки (в месяцах) еще раз:')
+         await message.answer('Неверный формат. Введите время подписки (в днях) еще раз:')
          return
     await message.answer('Введите количество устройств:')
     await state.set_state(FSMAddTariff.devices)
@@ -153,7 +170,7 @@ async def add_product_description(message: types.Message, state: FSMContext):
     try:
         await state.update_data(devices=int(message.text))
     except:
-         await message.answer('Неверный формат. Введите время подписки (в месяцах) еще раз:')
+         await message.answer('Неверный формат. Введите время подписки (в днях) еще раз:')
          return
     await message.answer('Введите цену подписки:')
     await state.set_state(FSMAddTariff.price)
@@ -193,8 +210,26 @@ class FSMEditTariff(StatesGroup):
 @admin_private_router.callback_query(StateFilter(None), F.data.startswith("edittariff"))
 async def add_product(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(tariff_id=callback.data.split('_')[-1])
-    await callback.message.answer('Введите новое время подписки (в месяцах) (или . чтобы пропустить):')
+    await callback.message.answer(
+        'Введите новое время подписки (в днях) или выберете готовый вариантн (или . чтобы пропустить):',
+        reply_markup=get_callback_btns(
+            btns={'1 месяц': f'month_31', '2 месяца': f'month_61', '3 месяца': f'month_92', '4 месяц': f'month_122', '5 месяц': f'month_153', '6 месяц': f'month_183', '7 месяц': f'month_214', '8 месяц': f'month_244', '9 месяц': f'month_275', '10 месяц': f'month_305', '11 месяц': f'month_336', '12 месяц': f'month_365'},
+            sizes=(1,),
+        )
+    )
     await state.set_state(FSMEditTariff.sub_time)
+
+
+@admin_private_router.callback_query(FSMEditTariff.sub_time)
+async def add_name_callback(callback, state):
+    try:
+        await state.update_data(sub_time=int(callback.data.split('_')[-1]))
+    except:
+         await message.answer('Неверный формат. Введите время подписки (в днях) еще раз:')
+         return
+    await message.answer('Введите количество устройств:')
+    await state.set_state(FSMAddTariff.devices)
+
 
 @admin_private_router.message(FSMEditTariff.sub_time)
 async def edit_tariff_sub_time(message: types.Message, state: FSMContext):
@@ -208,7 +243,7 @@ async def edit_tariff_sub_time(message: types.Message, state: FSMContext):
         await message.answer('Введите новую цену подписки (или . чтобы пропустить):')
         await state.set_state(FSMEditTariff.price)
     except:
-        await message.answer('Неверный формат. Введите время подписки (в месяцах) еще раз:')
+        await message.answer('Неверный формат. Введите время подписки (в днях) еще раз:')
 
 @admin_private_router.message(FSMEditTariff.price)
 async def edit_tariff_price(message: types.Message, state: FSMContext):
@@ -466,13 +501,15 @@ async def send_messages_active_subscribers(callback: types.CallbackQuery, state:
     await callback.answer()
     users = await orm_get_subscribers(session)
     for user in users:
-        data = await state.get_data()
-
-        if data.get('picture'):
-            await bot.send_photo(chat_id=user.user_id, photo=data['picture'], caption=data['message'])
-        else:
-            await bot.send_message(chat_id=user.user_id, text=data['message'])
-        
+        try:
+            data = await state.get_data()
+    
+            if data.get('picture'):
+                await bot.send_photo(chat_id=user.user_id, photo=data['picture'], caption=data['message'])
+            else:
+                await bot.send_message(chat_id=user.user_id, text=data['message'])
+        except:
+            continue
     
     await callback.message.answer(f"Сообщение отправленно {len(users)} пользователям")
     await state.clear()
@@ -483,12 +520,15 @@ async def send_messages_active_subscribers(callback: types.CallbackQuery, state:
     await callback.answer()
     users = await orm_get_users(session)
     for user in users:
-        data = await state.get_data()
-        if data.get('picture'):
-            await bot.send_photo(chat_id=user.user_id, photo=data['picture'], caption=data['message'])
-        else:
-            await bot.send_message(chat_id=user.user_id, text=data['message'])
-    
+        try:
+            data = await state.get_data()
+            if data.get('picture'):
+                await bot.send_photo(chat_id=user.user_id, photo=data['picture'], caption=data['message'])
+            else:
+                await bot.send_message(chat_id=user.user_id, text=data['message'])
+        except:
+            continue
+
     await callback.message.answer(f"Сообщение отправленно {len(users)} пользователям")
     await state.clear()
 
@@ -502,14 +542,14 @@ async def orders_list(callback: types.CallbackQuery, session):
     for order in orders:
         tariff = await orm_get_tariff(session, order.status)
         servers = await orm_get_user_servers(session, order.id)
-        if order.status > 0:
+        if order.status > 0 or order.sub_end:
             server = await orm_get_server(session, servers[0].server_id)
             cookies = await auth(server.server_url, server.login, server.password)
             with open('log.txt', 'w') as f:
                 f.write(str(servers[0].tun_id))
  
             client = await get_client(cookies, server.server_url, servers[0].tun_id, server.indoub_id)
-            message_text = f"<b>ID:</b> {order.user_id}\n<b>Имя:</b> {order.name}\n<b>Тариф:</b> {tariff.price} за {tariff.sub_time} мес.\nДата окончания: {order.sub_end.strftime('%d.%m.%Y')}\nКоличество устройств: {client['response']['limitIp']}"
+            message_text = f"<b>ID:</b> {order.user_id}\n<b>Имя:</b> {order.name}\n<b>Тариф:</b> {tariff.price} за {tariff.sub_time} мес.\nДата окончания: {order.sub_end.strftime('%d.%m.%Y')}\nКоличество устройств: {client['response']['limitIp']}\nСтатус: {'Активен' if order.status else 'Отменена'}"
     
             await callback.message.answer(
                 text=message_text,

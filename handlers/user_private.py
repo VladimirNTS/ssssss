@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from aiogram import Router, types, F
 from aiogram.exceptions import TelegramBadRequest
@@ -34,6 +34,14 @@ from skynetapi.skynetapi import auth, add_customer, edit_customer_date, get_clie
 
 user_private_router = Router()
 user_private_router.message.filter(BlockedUsersFilter())
+
+
+def days_to_months(days):
+    start_date = datetime.now()
+    end_date = start_date + timedelta(days=days)
+    difference = relativedelta(end_date, start_date)
+    return difference.years * 12 + difference.months
+
 
 
 @user_private_router.message(Command('start'))
@@ -143,7 +151,7 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
         
     for i in tariffs:
         if i.recuring:
-            btns[f"{i.sub_time} мес., {i.price} ₽, кол. устройств {i.devices}"] = f"chousen_{i.id}|{user.id}"
+            btns[f"{days_to_months(i.sub_time) if i.sub_time > 30 else i.sub_time} мес., {i.price} ₽, кол. устройств {i.devices}"] = f"chousen_{i.id}|{user.id}"
         else:
             pass
 
@@ -471,7 +479,7 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
     print(user.status) 
     if user.status == 0:
         current_date = datetime.now()
-        new_date = current_date + relativedelta(months=tariff.sub_time)
+        new_date = current_date + relativedelta(days=tariff.sub_time)
 
         tun_ids = {}
         user_servers = await orm_get_user_servers(session, user.id)
@@ -499,7 +507,7 @@ async def create_subscription(callback: types.CallbackQuery, session, bot):
             await orm_change_user_status(session, user.id, tariff.id, new_date, tun_ids)
         
         elif user_servers:
-            new_date = user.sub_end + relativedelta(months=tariff.sub_time)
+            new_date = user.sub_end + relativedelta(days=tariff.sub_time)
             date = int(new_date.timestamp() / 1000)
 
             for user_server in user_servers:

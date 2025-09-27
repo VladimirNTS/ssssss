@@ -67,7 +67,7 @@ async def add_customer(server, indoub_id, cookies, email, expire_time, limit_ip,
     }
     async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
         async with session.post(
-            server + 'panel/inbound/addClient',
+            server + 'panel/api/inbounds/addClient',
             data=data,
         ) as response:
             text = await response.text()
