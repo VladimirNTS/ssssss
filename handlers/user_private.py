@@ -12,6 +12,7 @@ from dateutil.relativedelta import relativedelta
 import qrcode
 from filters.users_filter import BlockedUsersFilter
 
+from utils.days_to_month import days_to_str
 from kbds.inline import get_callback_btns, get_inlineMix_btns, get_url_btns
 from database.queries import (
     orm_change_user_status,
@@ -24,8 +25,6 @@ from database.queries import (
     orm_change_user_server,
     orm_get_servers,
     orm_get_server,
-    orm_add_server,
-    orm_edit_server,
     orm_end_payment,
     orm_get_payment,
     orm_get_user_servers,
@@ -34,14 +33,6 @@ from skynetapi.skynetapi import auth, add_customer, edit_customer_date, get_clie
 
 user_private_router = Router()
 user_private_router.message.filter(BlockedUsersFilter())
-
-
-def days_to_months(days):
-    start_date = datetime.now()
-    end_date = start_date + timedelta(days=days)
-    difference = relativedelta(end_date, start_date)
-    return difference.years * 12 + difference.months
-
 
 
 @user_private_router.message(Command('start'))
@@ -151,7 +142,7 @@ async def choose_subscribe(callback: types.CallbackQuery, session):
         
     for i in tariffs:
         if i.recuring:
-            btns[f"{days_to_months(i.sub_time) if i.sub_time > 30 else i.sub_time} мес., {i.price} ₽, кол. устройств {i.devices}"] = f"chousen_{i.id}|{user.id}"
+            btns[f"{days_to_str(i.sub_time)}, {i.price} ₽, кол. устройств {i.devices}"] = f"chousen_{i.id}|{user.id}"
         else:
             pass
 
@@ -396,7 +387,6 @@ async def install_helper(callback: types.CallbackQuery, session):
         )
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
-            await callback.answer("Изменений нет")
             return
         raise
 
@@ -434,10 +424,7 @@ async def install(callback):
                 types.InputMediaPhoto(
                     media=types.FSInputFile("img/instruction_windows_1.jpg"), 
                     caption=text[callback.data.split('_')[-1]].split('|||')[0],
-                    reply_markup=get_inlineMix_btns(
-                        btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "install"},
-                        sizes=(1,)
-                    )
+                    
                 ),
                 types.InputMediaPhoto(media=types.FSInputFile("img/instruction_windows_2.jpg")),
                 types.InputMediaPhoto(media=types.FSInputFile("img/instruction_windows_3.jpg")),
@@ -446,6 +433,14 @@ async def install(callback):
 
             await callback.message.answer_media_group(
                 media=media,
+            )
+
+            await callback.message.answer(
+                text="Установить:",
+                reply_markup=get_inlineMix_btns(
+                    btns={"Установить": text[callback.data.split('_')[-1]].split('|||')[1], "Подключиться": 'check_subscription', "⬅ Назад": "install"},
+                    sizes=(1,)
+                )
             )
 
             return

@@ -90,6 +90,7 @@ async def subscribe(
     invoice_id = await orm_get_last_payment_id(async_session) + 1
 
     time_text = ''
+    
     if tariff.sub_time == 1:
         time_text = 'месяц'
     elif tariff.sub_time < 5:

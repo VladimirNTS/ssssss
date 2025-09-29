@@ -6,6 +6,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 from kbds.inline import get_callback_btns
+from utils.days_to_month import days_to_str
 from filters.users_filter import OwnerFilter
 from skynetapi.skynetapi import (
     edit_customer_date, 
@@ -45,14 +46,14 @@ admin_private_router.message.filter(OwnerFilter())
 
 
 @admin_private_router.callback_query(F.data == "admin")
-async def start(callback):
+async def call_start(callback):
     await callback.message.answer("Здраствуйте, чем займемся сегодня?", reply_markup=get_callback_btns(btns={
         '📃 Управление тарифами': 'tariffs_list',
         '📃 Список заказов': 'orders_list',
         '📫 Рассылка': 'send',
         '⚙ Редактировать FAQ': 'edit_faq',
         '⚙ Управление серверами': 'servers_list'
-    }, sizes=(2,2,1)))
+    }, sizes=(2, 2, 1)))
 
 
 @admin_private_router.message(Command("admin"))
@@ -68,7 +69,7 @@ async def start(message: types.Message):
 
 # Получить список тарифов
 @admin_private_router.callback_query(F.data == 'tariffs_list')
-async def choose_category(callback_query: types.CallbackQuery, session):
+async def get_tariffs(callback_query: types.CallbackQuery, session):
     await callback_query.answer()
     
 
@@ -76,7 +77,7 @@ async def choose_category(callback_query: types.CallbackQuery, session):
 
     for tariff in tariff_list:
         await callback_query.message.answer(
-            text=f"<b>Срок:</b> {tariff.sub_time} месяцев\n<b>Цена:</b> {tariff.price}\n<b>Количество устройств:</b> {tariff.devices}\n<b>Тип: {'повторяющийся платеж' if tariff.recuring else 'единоразовый платеж'}</b>", 
+            text=f"<b>Срок:</b> {days_to_str(tariff.sub_time)} \n<b>Цена:</b> {tariff.price}\n<b>Количество устройств:</b> {tariff.devices}\n<b>Тип: {'повторяющийся платеж' if tariff.recuring else 'единоразовый платеж'}</b>", 
             reply_markup=get_callback_btns(btns={'Изменить': f'edittariff_{tariff.id}', 'Удалить': f'deletetariff_{tariff.id}'})
         )
     
@@ -276,96 +277,10 @@ async def edit_tariff_pay_id(message: types.Message, state: FSMContext, session)
     await state.clear()
 
 
-# FSM для добавления единоразового платежа
-class FSMAddOnePay(StatesGroup):
-    sub_time = State()
-    price = State()
-    devices = State()
-
-# Undo text for add tariff FSM
-FSMAddOnePay_undo_text = {
-    'FSMAddTariff:sub_time': 'Введите время платежа (в днях) заново',
-    'FSMAddTariff:price': 'Введите цену платежа заново',
-}
-
-# Cancel handler for FSMAddTariff
-@admin_private_router.message(StateFilter("*"), F.text.in_({'/отмена', 'отмена'}))
-async def cancel_fsm_add_tariff(message: types.Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state is None:
-        return
-    await state.clear()
-    await message.answer('❌ Добавление платежа отменено')
-
-# Back handler for FSMAddTariff
-@admin_private_router.message(StateFilter('FSMAddOnePay'), F.text.in_({'/назад', 'назад'}))
-async def back_step_add_tariff(message: types.Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state == FSMAddOnePay.name.state:
-        await message.answer('Предыдущего шага нет, введите название платежа или напишите "отмена"')
-        return
-    previous = None
-    for step in FSMAddOnePay.all_states:
-        if step.state == current_state:
-            if previous is not None:
-                await state.set_state(previous.state)
-                await message.answer(f"Ок, вы вернулись к прошлому шагу. {FSMAddOnePay_undo_text[previous.state]}")
-            return
-        previous = step
-
-
-@admin_private_router.callback_query(StateFilter(None), F.data == "addonepay")
-async def add_product(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer('Введите время подписки (в днях):')
-    await state.set_state(FSMAddOnePay.sub_time)
-
-
-@admin_private_router.message(FSMAddOnePay.sub_time)
-async def add_product_description(message, state: FSMContext):
-    try:
-        await state.update_data(sub_time=int(message.text))
-    except:
-         await message.answer('Неверный формат. Введите время подписки (в месяцах) еще раз:')
-         return
-    await message.answer('Введите количество устройств:')
-    await state.set_state(FSMAddOnePay.devices)
-
-
-@admin_private_router.message(FSMAddOnePay.devices)
-async def add_product_description(message: types.Message, state: FSMContext):
-    try:
-        await state.update_data(devices=int(message.text))
-    except:
-        await message.answer('Неверный формат. Введите время подписки (в днях) еще раз:')
-        return
-    await message.answer('Введите цену платежа:')
-    await state.set_state(FSMAddOnePay.price)
-    
-
-
-
-@admin_private_router.message(FSMAddOnePay.price)
-async def add_product(message: types.Message, state: FSMContext, session):
-    try:
-        await state.update_data(price=int(message.text))
-    except:
-         await message.answer('Неверный формат. Введите цену еще раз:')
-    await state.update_data(pay_id=message.text.split('=')[-1])
-    await state.update_data(recuring=False)
-    data = await state.get_data()
-    try:
-        await orm_add_tariff(session=session, data=data)
-        await message.answer('✅ Тариф добавлен')
-    except:
-        await message.answer('❌ Ошибка добавления тарифа')
-    finally:
-        await state.clear()
-    
-
 
 # FAQ
 @admin_private_router.callback_query(F.data == 'edit_faq')
-async def edit_faq(callback: types.CallbackQuery, state: FSMContext, session):
+async def get_faq(callback: types.CallbackQuery, state: FSMContext, session):
     
     await callback.answer()
     faq_list = await orm_get_faq(session)
@@ -407,7 +322,7 @@ async def add_faq_description(message: types.Message, state: FSMContext):
 
 
 @admin_private_router.message(FSMAddFAQ.answer)
-async def add_faq_description(message: types.Message, state: FSMContext, session):
+async def add_faq_answer(message: types.Message, state: FSMContext, session):
     await state.update_data(answer=message.text)
     await message.answer('✅ Вопрос добавлен')
     data = await state.get_data()
@@ -516,7 +431,7 @@ async def send_messages_active_subscribers(callback: types.CallbackQuery, state:
 
 
 @admin_private_router.callback_query(FSMSendMessages.recipients, F.data == "all")
-async def send_messages_active_subscribers(callback: types.CallbackQuery, state: FSMContext, session, bot):
+async def send_messages_all_subscribers(callback: types.CallbackQuery, state: FSMContext, session, bot):
     await callback.answer()
     users = await orm_get_users(session)
     for user in users:
@@ -549,7 +464,7 @@ async def orders_list(callback: types.CallbackQuery, session):
                 f.write(str(servers[0].tun_id))
  
             client = await get_client(cookies, server.server_url, servers[0].tun_id, server.indoub_id)
-            message_text = f"<b>ID:</b> {order.user_id}\n<b>Имя:</b> {order.name}\n<b>Тариф:</b> {tariff.price} за {tariff.sub_time} мес.\nДата окончания: {order.sub_end.strftime('%d.%m.%Y')}\nКоличество устройств: {client['response']['limitIp']}\nСтатус: {'Активен' if order.status else 'Отменена'}"
+            message_text = f"<b>ID:</b> {order.user_id}\n<b>Имя:</b> {order.name}\n<b>Тариф:</b> {tariff.price} за {days_to_str(tariff.sub_time)}\nДата окончания: {order.sub_end.strftime('%d.%m.%Y')}\nКоличество устройств: {client['response']['limitIp']}\nСтатус: {'Активен' if order.status else 'Отменена'}"
     
             await callback.message.answer(
                 text=message_text,

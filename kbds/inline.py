@@ -5,7 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 def get_callback_btns(
     *,
     btns: dict[str, str],
-    sizes: tuple[int] = (2,)):
+    sizes: tuple[int, ...] = (2,)):
 
     keyboard = InlineKeyboardBuilder()
 
@@ -19,7 +19,7 @@ def get_callback_btns(
 def get_url_btns(
     *,
     btns: dict[str, str],
-    sizes: tuple[int] = (2,)):
+    sizes: tuple[int, ...] = (2,)):
 
     keyboard = InlineKeyboardBuilder()
 
@@ -34,7 +34,7 @@ def get_url_btns(
 def get_inlineMix_btns(
     *,
     btns: dict[str, str],
-    sizes: tuple[int] = (2,)):
+    sizes: tuple[int, ...] = (2,)):
 
     keyboard = InlineKeyboardBuilder()
 
